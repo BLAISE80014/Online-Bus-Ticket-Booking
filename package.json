@@ -1,0 +1,45 @@
+{
+  "name": "bus-ticket-booking-setup-main",
+  "version": "1.0.0",
+  "description": "This is just a starter template containing Navbar, Footer, and Theme Switcher Section. And also installed the required resources like react icons, framer motion, and other basic requirements.",
+  "main": "index.js",
+  "dependencies": {
+    "ansi-styles": "^4.3.0",
+    "color-name": "^1.1.4",
+    "concat-map": "^0.0.1",
+    "didyoumean": "^1.2.2",
+    "es-errors": "^1.3.0",
+    "esutils": "^2.0.3",
+    "find-up": "^5.0.0",
+    "framer-motion": "^12.38.0",
+    "isexe": "^2.0.0",
+    "iterator.prototype": "^1.1.5",
+    "jiti": "^1.21.7",
+    "jsesc": "^3.1.0",
+    "json-schema-traverse": "^0.4.1",
+    "ms": "^2.1.3",
+    "possible-typed-array-names": "^1.1.0",
+    "postcss-selector-parser": "^6.1.2",
+    "punycode": "^2.3.1",
+    "react": "^19.2.6",
+    "react-dom": "^19.2.6",
+    "react-icons": "^5.6.0",
+    "react-router-dom": "^7.15.0",
+    "shebang-regex": "^3.0.0",
+    "to-regex-range": "^5.0.1",
+    "vite": "^7.3.3"
+  },
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "devDependencies": {
+    "autoprefixer": "^10.5.0",
+    "postcss": "^8.5.14",
+    "tailwindcss": "^3.4.19"
+  }
+}
