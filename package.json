@@ -4,6 +4,7 @@
   "description": "This is just a starter template containing Navbar, Footer, and Theme Switcher Section. And also installed the required resources like react icons, framer motion, and other basic requirements.",
   "main": "index.js",
   "dependencies": {
+    "@vercel/analytics": "^2.0.1",
     "ansi-styles": "^4.3.0",
     "color-name": "^1.1.4",
     "concat-map": "^0.0.1",

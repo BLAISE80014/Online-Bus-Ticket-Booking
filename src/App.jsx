@@ -1,5 +1,6 @@
 import React from 'react';
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
+import { Analytics } from '@vercel/analytics/react';
 import Navbar from './components/navbar/Navbar';
 import Theme from './components/theme/Theme';
 import Footer from './components/footer/Footer';
@@ -27,6 +28,7 @@ function App() {
           <Footer />
         </div>
       </Router>
+      <Analytics />
     </>
   )
 }
