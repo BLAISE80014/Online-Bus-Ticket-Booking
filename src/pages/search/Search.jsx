@@ -1,68 +1,135 @@
-import React from 'react'
+import React, { useState } from "react";
+import { useNavigate } from "react-router-dom";
+import { useBooking } from "../../context/BookingContext";
 
 function Search() {
+  const navigate = useNavigate();
+  const { setFrom, setTo, setTravelDate, setTravelTime } = useBooking();
+
+  const [formData, setFormData] = useState({
+    from: "",
+    to: "",
+    date: "",
+    time: "",
+    seat: "",
+  });
+
+  const locations = [
+    "Kigali",
+    "Musanze",
+    "Rubavu",
+    "Nyagatare",
+    "Huye",
+    "Muhanga",
+    "Rusizi",
+    "Kayonza",
+    "Rwamagana",
+    "Bugesera",
+  ];
+
+  const handleChange = (e) => {
+    const { id, value } = e.target;
+    setFormData((prev) => ({ ...prev, [id]: value }));
+
+    // Update context
+    if (id === "from") setFrom(value);
+    if (id === "to") setTo(value);
+    if (id === "date") setTravelDate(value);
+    if (id === "time") setTravelTime(value);
+  };
+
+  const handleSearch = (e) => {
+    e.preventDefault();
+
+    if (!formData.from || !formData.to) {
+      alert("Please select both departure and arrival locations");
+      return;
+    }
+
+    navigate("/bus");
+  };
+
   return (
-    <div className='w-full lg:px-28 md:px-16 sm:px-7 px-4 my[8ch]'>
-        <div className="w-full neutral-100 rounded-md dark:bg-neutral-900/40 p-8">
-        <div className="grid grid-cols-3 gap-x-10 gap-y-12 items-end">
-            <div className="">
-                <label htmlFor="from" className="block mb-2 font-semibold">
-                    From
-                </label>
-                <select name="from" id="from" className="w-full appearence-none text-neutral-800 dark:text-neutral-100 placeholder:text-neutral-400 dark:placeholder:text-neutral-600 inline-block bg-neutral-200/60 dark:bg-neutral-900/60 px-3 h-12 border border-neutral-200 dark:border-neutral-900 rounded-md focus:outline-none focus:bg-neutral-100 dark:focus:bg-neutral-900">
+    <div className="w-full lg:px-28 md:px-16 sm:px-7 px-4 my-[8ch]">
+      <div className="w-full bg-neutral-200/60 dark:bg-neutral-900/40 rounded-md p-8">
+        <form onSubmit={handleSearch}>
+          <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-x-6 gap-y-6 items-end">
+            <div>
+              <label htmlFor="from" className="block mb-2 font-semibold">
+                From
+              </label>
+              <select
+                id="from"
+                value={formData.from}
+                onChange={handleChange}
+                className="w-full appearance-none text-neutral-800 dark:text-neutral-100 bg-neutral-200/60 dark:bg-neutral-900/60 px-3 h-12 border border-neutral-200 dark:border-neutral-900 rounded-md focus:outline-none focus:bg-neutral-100 dark:focus:bg-neutral-900"
+                required>
                 <option value="">Select Location</option>
-                <option value="loation1">Location 1</option>
-                <option value="location2">Location 2</option>
-                <option value="location3">Location 3</option>
-                </select>
-
+                {locations.map((loc) => (
+                  <option key={loc} value={loc}>
+                    {loc}
+                  </option>
+                ))}
+              </select>
             </div>
 
-            <div className="">
-                <label htmlFor="to" className="block mb-2 font-semibold">
-                    To
-                </label>
-                <select name="to" id="to" className="w-full appearence-none text-neutral-800 dark:text-neutral-100 placeholder:text-neutral-400 dark:placeholder:text-neutral-600 inline-block bg-neutral-200/60 dark:bg-neutral-900/60 px-3 h-12 border border-neutral-200 dark:border-neutral-900 rounded-md focus:outline-none focus:bg-neutral-100 dark:focus:bg-neutral-900">
+            <div>
+              <label htmlFor="to" className="block mb-2 font-semibold">
+                To
+              </label>
+              <select
+                id="to"
+                value={formData.to}
+                onChange={handleChange}
+                className="w-full appearance-none text-neutral-800 dark:text-neutral-100 bg-neutral-200/60 dark:bg-neutral-900/60 px-3 h-12 border border-neutral-200 dark:border-neutral-900 rounded-md focus:outline-none focus:bg-neutral-100 dark:focus:bg-neutral-900"
+                required>
                 <option value="">Select Location</option>
-                <option value="loation4">Location 4</option>
-                <option value="location5">Location 5</option>
-                <option value="location6">Location 6</option>
-                </select>
-
+                {locations.map((loc) => (
+                  <option key={loc} value={loc}>
+                    {loc}
+                  </option>
+                ))}
+              </select>
             </div>
 
-            <div className=''>
-                <label htmlFor="date" className="block mb-2 font-semibold">
-                    Choose Date
-                </label>
-                <input type="date" id='date' name='date' className="w-full appearence-none text-neutral-800 dark:text-neutral-100 placeholder:text-neutral-400 dark:placeholder:text-neutral-600 inline-block bg-neutral-200/60 dark:bg-neutral-900/60 px-3 h-12 border border-neutral-200 dark:border-neutral-900 rounded-md focus:outline-none focus:bg-neutral-100 dark:focus:bg-neutral-900"/>
+            <div>
+              <label htmlFor="date" className="block mb-2 font-semibold">
+                Travel Date
+              </label>
+              <input
+                type="date"
+                id="date"
+                value={formData.date}
+                onChange={handleChange}
+                className="w-full appearance-none text-neutral-800 dark:text-neutral-100 bg-neutral-200/60 dark:bg-neutral-900/60 px-3 h-12 border border-neutral-200 dark:border-neutral-900 rounded-md focus:outline-none focus:bg-neutral-100 dark:focus:bg-neutral-900"
+              />
             </div>
 
-            <div className=''>
-                <label htmlFor="time" className="block mb-2 font-semibold">
-                    Choose Time
-                </label>
-                <input type="time" id='time' name='time' className="w-full appearence-none text-neutral-800 dark:text-neutral-100 placeholder:text-neutral-400 dark:placeholder:text-neutral-600 inline-block bg-neutral-200/60 dark:bg-neutral-900/60 px-3 h-12 border border-neutral-200 dark:border-neutral-900 rounded-md focus:outline-none focus:bg-neutral-100 dark:focus:bg-neutral-900"/>
+            <div>
+              <label htmlFor="time" className="block mb-2 font-semibold">
+                Travel Time
+              </label>
+              <input
+                type="time"
+                id="time"
+                value={formData.time}
+                onChange={handleChange}
+                className="w-full appearance-none text-neutral-800 dark:text-neutral-100 bg-neutral-200/60 dark:bg-neutral-900/60 px-3 h-12 border border-neutral-200 dark:border-neutral-900 rounded-md focus:outline-none focus:bg-neutral-100 dark:focus:bg-neutral-900"
+              />
             </div>
 
-             <div className=''>
-                <label htmlFor="seat" className="block mb-2 font-semibold">
-                    Total Seat
-                </label>
-                <input type="number" id='seat' placeholder='Enter seat' name='seat' className="w-full appearence-none text-neutral-800 dark:text-neutral-100 placeholder:text-neutral-400 dark:placeholder:text-neutral-600 inline-block bg-neutral-200/60 dark:bg-neutral-900/60 px-3 h-12 border border-neutral-200 dark:border-neutral-900 rounded-md focus:outline-none focus:bg-neutral-100 dark:focus:bg-neutral-900"/>
+            <div>
+              <button
+                type="submit"
+                className="w-full px-4 h-12 bg-violet-600 text-neutral-50 text-base font-normal rounded-md hover:bg-violet-700 transition-colors">
+                Search Buses
+              </button>
             </div>
-
-             <div className=''>
-               <button className="w-full px-4 h-12 bg-violet-600 text-neutral-50 text-base font-noraml rounded-md">
-                Check Availability
-               </button>
-            </div>
-        </div>
-        
-        </div>
-
+          </div>
+        </form>
+      </div>
     </div>
-  )
+  );
 }
 
-export default Search
+export default Search;

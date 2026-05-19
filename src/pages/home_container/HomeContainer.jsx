@@ -4,20 +4,18 @@ import Search from "../search/Search";
 import Category from "../category/Category";
 import Offer from "../offer/Offer";
 
-
-
-
 const HomeContainer = () => {
-    return (
-        <>
-           {/* Hero section and other home related content */}
-           <Hero />
-           <Search />
-           <Category />
-           <Offer />
-           
-        </>
-    )
-}
+  return (
+    <>
+      <Hero />
+      {/* Ongera ID kuri Search section kugirango button ijyane hano */}
+      <div id="search-section">
+        <Search />
+      </div>
+      <Category />
+      <Offer />
+    </>
+  );
+};
 
-export default HomeContainer
+export default HomeContainer;

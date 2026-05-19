@@ -1,126 +1,193 @@
-import React from 'react'
-import { Link } from 'react-router-dom';
-import Bus1 from '../../assets/Bus1.png'
-import Bus2 from '../../assets/Bus2.png'
-import Bus3 from '../../assets/Bus3.png'
-import Bus4 from '../../assets/Bus4.png'
-import Bus5 from '../../assets/Bus5.png'
-import Bus6 from '../../assets/Bus6.png'
-import Bus7 from '../../assets/Bus7.png'
-import Bus0 from '../../assets/Bus.png'
-import { Fa0 } from 'react-icons/fa6';
-import { FaSearch } from 'react-icons/fa';
-
-
-
+import React, { useState } from "react";
+import { Link, useNavigate } from "react-router-dom";
+import Bus1 from "../../assets/Bus1.png";
+import Bus2 from "../../assets/Bus2.png";
+import Bus3 from "../../assets/Bus3.png";
+import Bus4 from "../../assets/Bus4.png";
+import Bus5 from "../../assets/Bus5.png";
+import Bus6 from "../../assets/Bus6.png";
+import Bus7 from "../../assets/Bus7.png";
+import Bus0 from "../../assets/Bus.png";
+import { FaSearch } from "react-icons/fa";
+import { useBooking } from "../../context/BookingContext";
 
 function Bus() {
-    return (
-        <div className='w-full lp:px-28 md:px-16 sm:px-7 px-4 mt-[13ch] mb-[8ch] space-y-14'>
-            {/* search and filter */}
-            <div className="w-full grid grid-cols-6 gap-14 gb-neutral-200/60 block dark:bg-neutral-900/40 rounded-md px-6 py-5 items-center justify-between">
-                <div className='flex items-center gap-x-2.5 col-span-2'>
-                    <input type="text" id='seat' placeholder='Search Buses...' name='seat' className="w-full appearence-none text-neutral-800 dark:text-neutral-100 placeholder:text-neutral-400 dark:placeholder:text-neutral-600 inline-block bg-neutral-200/60 dark:bg-neutral-900/60 px-3 h-12 border border-neutral-200 dark:border-neutral-900 rounded-md focus:outline-none focus:bg-neutral-100 dark:focus:bg-neutral-900" />
-                    <button className="bg-violet-600 h-11 px-4 rounded-md text-base text-neutral-50 font-normal">
-                        <FaSearch />
-                    </button>
-                </div>
-                <div className='col-span-2'></div>
+  const navigate = useNavigate();
+  const { booking } = useBooking();
+  const [searchTerm, setSearchTerm] = useState("");
+  const [selectedType, setSelectedType] = useState("");
 
-                <div className='col-span-2'>
+  const buses = [
+    {
+      id: 1,
+      name: "Tourist Bus",
+      plate: "RAB 101A",
+      passengers: 60,
+      image: Bus1,
+      type: "tourist",
+      price: 750,
+    },
+    {
+      id: 2,
+      name: "Deluxe Bus",
+      plate: "RAB 102B",
+      passengers: 50,
+      image: Bus0,
+      type: "deluxe",
+      price: 850,
+    },
+    {
+      id: 3,
+      name: "Luxury Bus",
+      plate: "RAB 103C",
+      passengers: 40,
+      image: Bus3,
+      type: "luxury",
+      price: 1200,
+    },
+    {
+      id: 4,
+      name: "Express Bus",
+      plate: "RAB 104D",
+      passengers: 55,
+      image: Bus4,
+      type: "tourist",
+      price: 680,
+    },
+    {
+      id: 5,
+      name: "City Bus",
+      plate: "RAB 105E",
+      passengers: 60,
+      image: Bus7,
+      type: "tourist",
+      price: 500,
+    },
+    {
+      id: 6,
+      name: "Premium Bus",
+      plate: "RAB 106F",
+      passengers: 45,
+      image: Bus6,
+      type: "luxury",
+      price: 1500,
+    },
+    {
+      id: 7,
+      name: "Standard Bus",
+      plate: "RAB 107G",
+      passengers: 65,
+      image: Bus2,
+      type: "tourist",
+      price: 600,
+    },
+    {
+      id: 8,
+      name: "Sleeper Bus",
+      plate: "RAB 108H",
+      passengers: 35,
+      image: Bus5,
+      type: "luxury",
+      price: 1800,
+    },
+  ];
 
-                    <select className="w-full appearence-none text-neutral-800 dark:text-neutral-100 placeholder:text-neutral-400 dark:placeholder:text-neutral-600 inline-block bg-neutral-200/60 dark:bg-neutral-900/60 px-3 h-12 border border-neutral-200 dark:border-neutral-900 rounded-md focus:outline-none focus:bg-neutral-100 dark:focus:bg-neutral-900">
-                        <option value="">Select Bus Type</option>
-                        <option value="touristbus">Tourist Bus</option>
-                        <option value="privatebus">Private Bus</option>
-                        <option value="luxurybus">Luxury Bus</option>
-                        <option value="deluxebus">Deluxe Bus</option>
-                    </select>
-                </div>
-            </div>
-            {/*Bus card*/}
-            <div className='w-full grid grid-cols-3 gap-10'>
-                <Link to={"/bus/bus-details"} className='w-full bg-neutral-200/60 dark:bg-neutral-900/40 rounded-xl p-4'>
-                <img src={Bus1} alt="bus img" className="w-full aspect-video object-contain object-center" />
-                <div className='px-3 py-4 space-y-5'>
-                    <div className='flex items-center justify-between'>
-                        <h1 className='text-xl font-semibold text-neutral-800 dark:text-neutral-50'>
-                            Tourist Bus
-                        </h1>
-                        <p className='text-sm font-normal text-neutral-800 dark:text-neutral-50'>
-                            60 passengers
-                        </p>
-                    </div>
-                </div>
-                </Link>
-                 <Link to={"/bus/bus-details"} className='w-full bg-neutral-200/60 dark:bg-neutral-900/40 rounded-xl p-4'>
-                <img src={Bus0} alt="bus img" className="w-full aspect-video object-contain object-center" />
-                <div className='px-3 py-4 space-y-5'>
-                    <div className='flex items-center justify-between'>
-                        <h1 className='text-xl font-semibold text-neutral-800 dark:text-neutral-50'>
-                            Tourist Bus
-                        </h1>
-                        <p className='text-sm font-normal text-neutral-800 dark:text-neutral-50'>
-                            60 passengers
-                        </p>
-                    </div>
-                </div>
-                </Link>
-                 <Link to={"/bus/bus-details"} className='w-full bg-neutral-200/60 dark:bg-neutral-900/40 rounded-xl p-4'>
-                <img src={Bus3} alt="bus img" className="w-full aspect-video object-contain object-center" />
-                <div className='px-3 py-4 space-y-5'>
-                    <div className='flex items-center justify-between'>
-                        <h1 className='text-xl font-semibold text-neutral-800 dark:text-neutral-50'>
-                            Tourist Bus
-                        </h1>
-                        <p className='text-sm font-normal text-neutral-800 dark:text-neutral-50'>
-                            60 passengers
-                        </p>
-                    </div>
-                </div>
-                </Link>
-                 <Link to={"/bus/bus-details"} className='w-full bg-neutral-200/60 dark:bg-neutral-900/40 rounded-xl p-4'>
-                <img src={Bus4} alt="bus img" className="w-full aspect-video object-contain object-center" />
-                <div className='px-3 py-4 space-y-5'>
-                    <div className='flex items-center justify-between'>
-                        <h1 className='text-xl font-semibold text-neutral-800 dark:text-neutral-50'>
-                            Tourist Bus
-                        </h1>
-                        <p className='text-sm font-normal text-neutral-800 dark:text-neutral-50'>
-                            60 passengers
-                        </p>
-                    </div>
-                </div>
-                </Link>
-                 <Link to={"/bus/bus-details"} className='w-full bg-neutral-200/60 dark:bg-neutral-900/40 rounded-xl p-4'>
-                <img src={Bus7} alt="bus img" className="w-full aspect-video object-contain object-center" />
-                <div className='px-3 py-4 space-y-5'>
-                    <div className='flex items-center justify-between'>
-                        <h1 className='text-xl font-semibold text-neutral-800 dark:text-neutral-50'>
-                            Tourist Bus
-                        </h1>
-                        <p className='text-sm font-normal text-neutral-800 dark:text-neutral-50'>
-                            60 passengers
-                        </p>
-                    </div>
-                </div>
-                </Link>
-                 <Link to={"/bus/bus-details"} className='w-full bg-neutral-200/60 dark:bg-neutral-900/40 rounded-xl p-4'>
-                <img src={Bus6} alt="bus img" className="w-full aspect-video object-contain object-center" />
-                <div className='px-3 py-4 space-y-5'>
-                    <div className='flex items-center justify-between'>
-                        <h1 className='text-xl font-semibold text-neutral-800 dark:text-neutral-50'>
-                            Tourist Bus
-                        </h1>
-                        <p className='text-sm font-normal text-neutral-800 dark:text-neutral-50'>
-                            60 passengers
-                        </p>
-                    </div>
-                </div>
-                </Link>
-            </div>
+  const filteredBuses = buses.filter((bus) => {
+    const matchesSearch = bus.name
+      .toLowerCase()
+      .includes(searchTerm.toLowerCase());
+    const matchesType = selectedType === "" || bus.type === selectedType;
+    return matchesSearch && matchesType;
+  });
+
+  const handleBusClick = (bus) => {
+    navigate("/bus/detail", {
+      state: { name: bus.name, plate: bus.plate, rating: 4.5 },
+    });
+  };
+
+  return (
+    <div className="w-full lg:px-28 md:px-16 sm:px-7 px-4 mt-[13ch] mb-[8ch] space-y-10">
+      {/* Search and Filter */}
+      <div className="w-full bg-neutral-200/60 dark:bg-neutral-900/40 rounded-md px-6 py-5">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-center">
+          <div className="flex items-center gap-x-2.5">
+            <input
+              type="text"
+              id="search"
+              placeholder="Search Buses..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="w-full appearance-none text-neutral-800 dark:text-neutral-100 placeholder:text-neutral-400 dark:placeholder:text-neutral-600 bg-neutral-200/60 dark:bg-neutral-900/60 px-3 h-12 border border-neutral-200 dark:border-neutral-900 rounded-md focus:outline-none focus:bg-neutral-100 dark:focus:bg-neutral-900"
+            />
+            <button className="bg-violet-600 h-11 px-4 rounded-md text-neutral-50 font-normal hover:bg-violet-700 transition-colors">
+              <FaSearch />
+            </button>
+          </div>
+
+          <div className="md:col-span-2">
+            <select
+              value={selectedType}
+              onChange={(e) => setSelectedType(e.target.value)}
+              className="w-full appearance-none text-neutral-800 dark:text-neutral-100 bg-neutral-200/60 dark:bg-neutral-900/60 px-3 h-12 border border-neutral-200 dark:border-neutral-900 rounded-md focus:outline-none focus:bg-neutral-100 dark:focus:bg-neutral-900">
+              <option value="">All Bus Types</option>
+              <option value="tourist">Tourist Bus</option>
+              <option value="deluxe">Deluxe Bus</option>
+              <option value="luxury">Luxury Bus</option>
+            </select>
+          </div>
         </div>
-    )
+      </div>
+
+      {/* Results info */}
+      <div className="text-sm text-neutral-500 dark:text-neutral-500">
+        Found {filteredBuses.length} bus{filteredBuses.length !== 1 ? "es" : ""}
+        {booking.from && booking.to && ` from ${booking.from} to ${booking.to}`}
+      </div>
+
+      {/* Bus Cards */}
+      <div className="w-full grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        {filteredBuses.map((bus) => (
+          <div
+            key={bus.id}
+            onClick={() => handleBusClick(bus)}
+            className="w-full bg-neutral-200/60 dark:bg-neutral-900/40 rounded-xl p-4 cursor-pointer hover:scale-105 transition-transform duration-300">
+            <img
+              src={bus.image}
+              alt={bus.name}
+              className="w-full aspect-video object-contain object-center"
+            />
+            <div className="px-3 py-4 space-y-4">
+              <div className="flex items-center justify-between">
+                <h1 className="text-xl font-semibold text-neutral-800 dark:text-neutral-50">
+                  {bus.name}
+                </h1>
+                <p className="text-sm font-normal text-neutral-600 dark:text-neutral-400">
+                  {bus.passengers} seats
+                </p>
+              </div>
+              <div className="flex items-center justify-between">
+                <p className="text-sm text-neutral-500 dark:text-neutral-500">
+                  {bus.plate}
+                </p>
+                <p className="text-lg font-bold text-violet-600">
+                  Rs. {bus.price}
+                </p>
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {filteredBuses.length === 0 && (
+        <div className="text-center py-12">
+          <p className="text-neutral-500 dark:text-neutral-500">
+            No buses found matching your criteria.
+          </p>
+        </div>
+      )}
+    </div>
+  );
 }
 
-export default Bus
+export default Bus;
