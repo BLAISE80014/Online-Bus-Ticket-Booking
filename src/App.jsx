@@ -12,10 +12,6 @@ import Offer from "./pages/offer/Offer";
 import NotFound from "./pages/notfound/NotFound";
 import { BookingProvider } from "./context/BookingContext";
 
-// Import dashboard components (comment these out until you create the files)
-// import AdminDashboard from "./pages/admin/AdminDashboard";
-// import UserDashboard from "./pages/user/UserDashboard";
-
 function App() {
   return (
     <Router>
@@ -32,10 +28,6 @@ function App() {
               <Route path="/bus/detail" element={<Detail />} />
               <Route path="/bus/detail/checkout" element={<Checkout />} />
               <Route path="*" element={<NotFound />} />
-
-              {/* Dashboard routes - uncomment after creating files */}
-              {/* <Route path="/admin" element={<AdminDashboard />} /> */}
-              {/* <Route path="/dashboard" element={<UserDashboard />} /> */}
             </Routes>
           </main>
           <Footer />
