@@ -15,6 +15,23 @@ function Destination() {
     "Kayonza",
     "Rwamagana",
     "Bugesera",
+    "Gicumbi",
+    "Rulindo",
+    "Gakenke",
+    "Nyabihu",
+    "Ngororero",
+    "Karongi",
+    "Nyamasheke",
+    "Rutsiro",
+    "Burera",
+    "Gisagara",
+    "Nyanza",
+    "Huye",
+    "Nyamagabe",
+    "Ruhango",
+    "Gatsibo",
+    "Kirehe",
+    "Ngoma",
   ];
 
   return (
