@@ -1,6 +1,13 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { FaUser, FaEnvelope, FaLock, FaEye, FaEyeSlash } from "react-icons/fa";
+import {
+  FaUser,
+  FaEnvelope,
+  FaLock,
+  FaEye,
+  FaEyeSlash,
+  FaUserTag,
+} from "react-icons/fa";
 
 function Register({ onRegister }) {
   const [formData, setFormData] = useState({
@@ -8,6 +15,7 @@ function Register({ onRegister }) {
     email: "",
     password: "",
     confirmPassword: "",
+    role: "user",
   });
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
@@ -29,14 +37,34 @@ function Register({ onRegister }) {
       return;
     }
 
+    // Check if email already exists
+    const users = JSON.parse(localStorage.getItem("users") || "[]");
+    if (users.find((u) => u.email === formData.email)) {
+      setError("Email already exists! Please login.");
+      return;
+    }
+
     const userData = {
       id: Date.now(),
       name: formData.name,
       email: formData.email,
+      password: formData.password,
+      role: formData.role,
+      createdAt: new Date().toISOString(),
     };
-    localStorage.setItem("user", JSON.stringify(userData));
+
+    users.push(userData);
+    localStorage.setItem("users", JSON.stringify(users));
+    localStorage.setItem("currentUser", JSON.stringify(userData));
+
     if (onRegister) onRegister(userData);
-    navigate("/dashboard");
+
+    // Redirect based on role
+    if (formData.role === "admin") {
+      navigate("/admin");
+    } else {
+      navigate("/");
+    }
   };
 
   return (
@@ -106,8 +134,7 @@ function Register({ onRegister }) {
               <button
                 type="button"
                 onClick={() => setShowPassword(!showPassword)}
-                className="absolute right-3 top-1/2 transform -translate-y-1/2 text-neutral-400 hover:text-neutral-600"
-              >
+                className="absolute right-3 top-1/2 transform -translate-y-1/2 text-neutral-400 hover:text-neutral-600">
                 {showPassword ? <FaEyeSlash /> : <FaEye />}
               </button>
             </div>
@@ -130,16 +157,35 @@ function Register({ onRegister }) {
               <button
                 type="button"
                 onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                className="absolute right-3 top-1/2 transform -translate-y-1/2 text-neutral-400 hover:text-neutral-600"
-              >
+                className="absolute right-3 top-1/2 transform -translate-y-1/2 text-neutral-400 hover:text-neutral-600">
                 {showConfirmPassword ? <FaEyeSlash /> : <FaEye />}
               </button>
             </div>
           </div>
+          <div>
+            <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-2">
+              Account Type
+            </label>
+            <div className="relative">
+              <FaUserTag className="absolute left-3 top-1/2 transform -translate-y-1/2 text-neutral-400" />
+              <select
+                name="role"
+                value={formData.role}
+                onChange={handleChange}
+                className="w-full pl-10 pr-4 py-3 border border-neutral-300 dark:border-neutral-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-violet-500 dark:bg-neutral-800 dark:text-neutral-100">
+                <option value="user">👤 User - Regular User</option>
+                <option value="admin">👑 Admin - System Administrator</option>
+              </select>
+            </div>
+            <p className="text-xs text-neutral-500 mt-1">
+              {formData.role === "admin"
+                ? "Admin can manage buses, routes, bookings and system settings"
+                : "User can browse and book buses"}
+            </p>
+          </div>
           <button
             type="submit"
-            className="w-full bg-violet-600 text-white py-3 rounded-lg font-semibold hover:bg-violet-700 transition-colors"
-          >
+            className="w-full bg-violet-600 text-white py-3 rounded-lg font-semibold hover:bg-violet-700 transition-colors">
             Create Account
           </button>
         </form>
@@ -147,8 +193,7 @@ function Register({ onRegister }) {
           Already have an account?{" "}
           <button
             onClick={() => navigate("/login")}
-            className="text-violet-600 font-semibold hover:underline"
-          >
+            className="text-violet-600 font-semibold hover:underline">
             Sign In
           </button>
         </p>

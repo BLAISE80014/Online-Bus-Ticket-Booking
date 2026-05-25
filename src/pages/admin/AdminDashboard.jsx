@@ -11,7 +11,6 @@ import {
   FaSignOutAlt,
   FaBars,
   FaTimes,
-  FaUserCircle,
   FaEye,
   FaEdit,
   FaTrash,
@@ -30,6 +29,10 @@ import {
   FaSave,
   FaUpload,
   FaLock,
+  FaPhone,
+  FaFax,
+  FaWhatsapp,
+  FaUserCircle,
 } from "react-icons/fa";
 import {
   LineChart,
@@ -48,120 +51,7 @@ import {
   Area,
   AreaChart,
 } from "recharts";
-
-// Login/Register Component
-function Auth({ onLogin, darkMode }) {
-  const [isLogin, setIsLogin] = useState(true);
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [name, setName] = useState("");
-  const [error, setError] = useState("");
-
-  const handleSubmit = (e) => {
-    e.preventDefault();
-    if (isLogin) {
-      const users = JSON.parse(localStorage.getItem("users") || "[]");
-      const user = users.find(
-        (u) => u.email === email && u.password === password,
-      );
-      if (user) {
-        localStorage.setItem("currentUser", JSON.stringify(user));
-        onLogin(user);
-      } else {
-        setError("Invalid email or password");
-      }
-    } else {
-      const users = JSON.parse(localStorage.getItem("users") || "[]");
-      if (users.find((u) => u.email === email)) {
-        setError("Email already exists");
-        return;
-      }
-      const newUser = {
-        id: Date.now(),
-        name,
-        email,
-        password,
-        role: "Admin",
-        createdAt: new Date().toISOString(),
-      };
-      users.push(newUser);
-      localStorage.setItem("users", JSON.stringify(users));
-      localStorage.setItem("currentUser", JSON.stringify(newUser));
-      onLogin(newUser);
-    }
-  };
-
-  return (
-    <div
-      className={`min-h-screen flex items-center justify-center ${darkMode ? "bg-neutral-950" : "bg-neutral-100"}`}>
-      <div
-        className={`max-w-md w-full mx-4 p-8 rounded-2xl shadow-xl ${darkMode ? "bg-neutral-900" : "bg-white"}`}>
-        <div className="text-center mb-8">
-          <div className="flex justify-center mb-4">
-            <FaBus className="text-5xl text-violet-600" />
-          </div>
-          <h2
-            className={`text-2xl font-bold ${darkMode ? "text-white" : "text-neutral-800"}`}>
-            {isLogin ? "Welcome Back" : "Create Account"}
-          </h2>
-          <p
-            className={`text-sm mt-2 ${darkMode ? "text-neutral-400" : "text-neutral-500"}`}>
-            {isLogin
-              ? "Sign in to access dashboard"
-              : "Register to start managing buses"}
-          </p>
-        </div>
-        <form onSubmit={handleSubmit} className="space-y-4">
-          {!isLogin && (
-            <input
-              type="text"
-              placeholder="Full Name"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              className={`w-full px-4 py-3 rounded-xl border focus:outline-none focus:ring-2 focus:ring-violet-500 ${darkMode ? "bg-neutral-800 border-neutral-700 text-white" : "bg-neutral-50 border-neutral-200"}`}
-              required
-            />
-          )}
-          <input
-            type="email"
-            placeholder="Email Address"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            className={`w-full px-4 py-3 rounded-xl border focus:outline-none focus:ring-2 focus:ring-violet-500 ${darkMode ? "bg-neutral-800 border-neutral-700 text-white" : "bg-neutral-50 border-neutral-200"}`}
-            required
-          />
-          <input
-            type="password"
-            placeholder="Password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            className={`w-full px-4 py-3 rounded-xl border focus:outline-none focus:ring-2 focus:ring-violet-500 ${darkMode ? "bg-neutral-800 border-neutral-700 text-white" : "bg-neutral-50 border-neutral-200"}`}
-            required
-          />
-          {error && <p className="text-red-500 text-sm">{error}</p>}
-          <button
-            type="submit"
-            className="w-full bg-violet-600 text-white py-3 rounded-xl font-semibold hover:bg-violet-700 transition-colors">
-            {isLogin ? "Sign In" : "Register"}
-          </button>
-        </form>
-        <p
-          className={`text-center mt-6 ${darkMode ? "text-neutral-400" : "text-neutral-500"}`}>
-          {isLogin ? "Don't have an account? " : "Already have an account? "}
-          <button
-            onClick={() => {
-              setIsLogin(!isLogin);
-              setError("");
-            }}
-            className="text-violet-600 font-semibold hover:underline">
-            {isLogin ? "Register" : "Sign In"}
-          </button>
-        </p>
-      </div>
-    </div>
-  );
-}
-
+import { useNavigate } from "react-router-dom";
 // Modal Component
 function Modal({ isOpen, onClose, title, children, darkMode }) {
   if (!isOpen) return null;
@@ -229,7 +119,7 @@ function PasswordStrength({ password }) {
 
 // Main Dashboard Component
 function AdminDashboard() {
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const navigate = useNavigate();
   const [currentUser, setCurrentUser] = useState(null);
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [activeMenu, setActiveMenu] = useState("dashboard");
@@ -351,37 +241,44 @@ function AdminDashboard() {
     status: "Pending",
   });
 
-  // Load data
+  // Check authentication and role on mount
   useEffect(() => {
     const storedUser = localStorage.getItem("currentUser");
-    if (storedUser) {
-      const parsedUser = JSON.parse(storedUser);
-      setCurrentUser(parsedUser);
-      setIsAuthenticated(true);
-      setProfile({
-        fullName: parsedUser.name || "",
-        email: parsedUser.email || "",
-        phone: parsedUser.phone || "",
-        bio: parsedUser.bio || "",
-        profilePicture: parsedUser.profilePicture || "",
-      });
-
-      const loginEntry = {
-        id: Date.now(),
-        email: parsedUser.email,
-        timestamp: new Date().toLocaleString(),
-        device: navigator.userAgent.substring(0, 50),
-      };
-      const existingHistory = JSON.parse(
-        localStorage.getItem("loginHistory") || "[]",
-      );
-      existingHistory.unshift(loginEntry);
-      localStorage.setItem(
-        "loginHistory",
-        JSON.stringify(existingHistory.slice(0, 10)),
-      );
-      setLoginHistory(existingHistory.slice(0, 10));
+    if (!storedUser) {
+      navigate("/login");
+      return;
     }
+
+    const parsedUser = JSON.parse(storedUser);
+    if (parsedUser.role !== "admin") {
+      navigate("/");
+      return;
+    }
+
+    setCurrentUser(parsedUser);
+    setProfile({
+      fullName: parsedUser.name || "",
+      email: parsedUser.email || "",
+      phone: parsedUser.phone || "",
+      bio: parsedUser.bio || "",
+      profilePicture: parsedUser.profilePicture || "",
+    });
+
+    const loginEntry = {
+      id: Date.now(),
+      email: parsedUser.email,
+      timestamp: new Date().toLocaleString(),
+      device: navigator.userAgent.substring(0, 50),
+    };
+    const existingHistory = JSON.parse(
+      localStorage.getItem("loginHistory") || "[]",
+    );
+    existingHistory.unshift(loginEntry);
+    localStorage.setItem(
+      "loginHistory",
+      JSON.stringify(existingHistory.slice(0, 10)),
+    );
+    setLoginHistory(existingHistory.slice(0, 10));
 
     // Load all data
     const savedBuses = localStorage.getItem("buses");
@@ -458,7 +355,7 @@ function AdminDashboard() {
 
     const savedDarkMode = localStorage.getItem("darkMode") === "true";
     setDarkMode(savedDarkMode);
-  }, []);
+  }, [navigate]);
 
   // Save to localStorage
   useEffect(() => {
@@ -510,13 +407,7 @@ function AdminDashboard() {
 
   const handleLogout = () => {
     localStorage.removeItem("currentUser");
-    setIsAuthenticated(false);
-    setCurrentUser(null);
-  };
-
-  const handleLogin = (user) => {
-    setCurrentUser(user);
-    setIsAuthenticated(true);
+    navigate("/login");
   };
 
   const handleProfilePictureUpload = (e) => {
@@ -584,8 +475,7 @@ function AdminDashboard() {
 
   const logoutFromAllDevices = () => {
     localStorage.removeItem("currentUser");
-    setIsAuthenticated(false);
-    setCurrentUser(null);
+    navigate("/login");
     addNotification("Logged out from all devices");
   };
 
@@ -843,11 +733,6 @@ function AdminDashboard() {
     { id: "staff", label: "User & Role Management", icon: FaUsers },
     { id: "system", label: "System Preferences", icon: FaGlobe },
   ];
-
-  // Show login page if not authenticated
-  if (!isAuthenticated && !currentUser) {
-    return <Auth onLogin={handleLogin} darkMode={darkMode} />;
-  }
 
   const renderSettings = () => (
     <div>
@@ -1915,10 +1800,13 @@ function AdminDashboard() {
     }
   };
 
+  if (!currentUser) {
+    return null;
+  }
+
   return (
     <div
       className={`min-h-screen ${darkMode ? "bg-neutral-950" : "bg-neutral-100"}`}>
-      {/* Modals */}
       <Modal
         isOpen={showAddBus}
         onClose={() => setShowAddBus(false)}

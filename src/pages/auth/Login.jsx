@@ -11,17 +11,24 @@ function Login({ onLogin }) {
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    if (email && password) {
-      const userData = {
-        id: Date.now(),
-        name: email.split("@")[0],
-        email: email,
-      };
-      localStorage.setItem("user", JSON.stringify(userData));
-      if (onLogin) onLogin(userData);
-      navigate("/dashboard");
+
+    const users = JSON.parse(localStorage.getItem("users") || "[]");
+    const user = users.find(
+      (u) => u.email === email && u.password === password,
+    );
+
+    if (user) {
+      localStorage.setItem("currentUser", JSON.stringify(user));
+      if (onLogin) onLogin(user);
+
+      // Redirect based on role
+      if (user.role === "admin") {
+        navigate("/admin");
+      } else {
+        navigate("/");
+      }
     } else {
-      setError("Please fill in all fields");
+      setError("Invalid email or password");
     }
   };
 
@@ -73,16 +80,14 @@ function Login({ onLogin }) {
               <button
                 type="button"
                 onClick={() => setShowPassword(!showPassword)}
-                className="absolute right-3 top-1/2 transform -translate-y-1/2 text-neutral-400 hover:text-neutral-600"
-              >
+                className="absolute right-3 top-1/2 transform -translate-y-1/2 text-neutral-400 hover:text-neutral-600">
                 {showPassword ? <FaEyeSlash /> : <FaEye />}
               </button>
             </div>
           </div>
           <button
             type="submit"
-            className="w-full bg-violet-600 text-white py-3 rounded-lg font-semibold hover:bg-violet-700 transition-colors"
-          >
+            className="w-full bg-violet-600 text-white py-3 rounded-lg font-semibold hover:bg-violet-700 transition-colors">
             Sign In
           </button>
         </form>
@@ -90,8 +95,7 @@ function Login({ onLogin }) {
           Don't have an account?{" "}
           <button
             onClick={() => navigate("/register")}
-            className="text-violet-600 font-semibold hover:underline"
-          >
+            className="text-violet-600 font-semibold hover:underline">
             Sign Up
           </button>
         </p>

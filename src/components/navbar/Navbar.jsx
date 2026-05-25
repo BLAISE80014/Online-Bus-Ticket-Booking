@@ -1,13 +1,22 @@
-import React from "react";
-import { Link } from "react-router-dom";
+import React, { useState, useEffect } from "react";
+import { Link, useNavigate } from "react-router-dom";
+import { LiaTimesSolid } from "react-icons/lia";
+import { FaPhone } from "react-icons/fa";
 
 import Logo from "../../assets/logo.png";
-import { LiaTimesSolid } from "react-icons/lia";
-import { FaBars, FaPhone } from "react-icons/fa6";
 import Theme from "../theme/Theme";
 
 const Navbar = () => {
-  const [open, setOpen] = React.useState(false);
+  const [open, setOpen] = useState(false);
+  const [currentUser, setCurrentUser] = useState(null);
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    const user = localStorage.getItem("currentUser");
+    if (user) {
+      setCurrentUser(JSON.parse(user));
+    }
+  }, []);
 
   const navLinks = [
     { href: "/", label: "Home" },
@@ -24,23 +33,19 @@ const Navbar = () => {
     setOpen(false);
   };
 
+  const handleLogout = () => {
+    localStorage.removeItem("currentUser");
+    setCurrentUser(null);
+    navigate("/login");
+    handleClose();
+  };
+
   return (
     <div className="w-full h-[8ch] bg-neutral-100 dark:bg-neutral-900 flex items-center md:flex-row lg:px-28 md:px-16 sm:px-7 px-4 fixed top-0 z-50">
       {/* Logo section */}
-      <Link to={"/"} className="mr-16">
+      <Link to={"/"} className="mr-16" onClick={handleClose}>
         <img src={Logo} alt="logo" className="w-28 h-auto object-contain" />
       </Link>
-
-      {/* Toggle button */}
-      <button
-        onClick={handleClick}
-        className="flex-1 lg:hidden text-neutral-600 dark:text-neutral-300 ease-in-out duration-300 flex items-center justify-end">
-        {open ? (
-          <LiaTimesSolid className="text-xl" />
-        ) : (
-          <FaBars className="text-xl" />
-        )}
-      </button>
 
       {/* Navigation links */}
       <div
@@ -70,8 +75,29 @@ const Navbar = () => {
               </p>
             </div>
           </div>
+
           {/* Theme */}
           <Theme />
+
+          {/* Auth Links */}
+          {currentUser ? (
+            <div className="flex items-center gap-3"></div>
+          ) : (
+            <div className="flex items-center gap-3">
+              <Link
+                to="/login"
+                onClick={handleClose}
+                className="text-violet-600 hover:text-violet-700">
+                Login
+              </Link>
+              <Link
+                to="/register"
+                onClick={handleClose}
+                className="bg-violet-600 text-white px-4 py-1 rounded-md hover:bg-violet-700">
+                Register
+              </Link>
+            </div>
+          )}
         </div>
       </div>
     </div>
