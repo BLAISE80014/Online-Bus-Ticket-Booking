@@ -12,9 +12,6 @@ import Checkout from "./pages/checkout/Checkout";
 import About from "./pages/about/About";
 import Category from "./pages/category/Category";
 import NotFound from "./pages/notfound/NotFound";
-
-import Register from "./pages/auth/Register";
-import Login from "./pages/auth/Login";
 import AdminDashboard from "./pages/admin/AdminDashboard";
 
 import { BookingProvider } from "./context/BookingContext";
@@ -25,20 +22,6 @@ function App() {
       <BookingProvider>
         <div className="min-h-screen bg-neutral-50 dark:bg-neutral-950 text-neutral-800 dark:text-neutral-200 flex flex-col">
           <Routes>
-            {/* Auth routes without Navbar/Footer */}
-            <Route path="/register" element={<Register />} />
-            <Route path="/login" element={<Login />} />
-
-            {/* Protected Admin route */}
-            <Route
-              path="/admin"
-              element={
-                <ProtectedRoute requiredRole="admin">
-                  <AdminDashboard />
-                </ProtectedRoute>
-              }
-            />
-
             {/* Main routes with Navbar and Footer */}
             <Route
               path="/*"

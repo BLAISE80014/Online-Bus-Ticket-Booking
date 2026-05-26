@@ -1,13 +1,20 @@
 import React, { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import Bus1 from "../../assets/Bus1.png";
-import Bus2 from "../../assets/Bus2.png";
+import Bus00 from "../../assets/back/Buss1.jpeg";
+import Bus2 from "../../assets/back/Bus2.jpeg";
 import Bus3 from "../../assets/Bus3.png";
-import Bus4 from "../../assets/Bus4.png";
-import Bus5 from "../../assets/Bus5.png";
+import Bus4 from "../../assets/back/Bus4.jpeg";
+import Bus5 from "../../assets/back/Bus5.jpeg";
 import Bus6 from "../../assets/Bus6.png";
-import Bus7 from "../../assets/Bus7.png";
-import Bus0 from "../../assets/Bus.png";
+import Bus7 from "../../assets/back/Bus7.jpeg";
+import Bus77 from "../../assets/Buss7.png";
+import Bus0 from "../../assets/back/Bus8.jpeg";
+import Bus8 from "../../assets/Bus8.png";
+import Bus9 from "../../assets/back/Bus9.jpeg";
+import Bus10 from "../../assets/Bus10.png";
+import Bus11 from "../../assets/back/Bus11.jpeg";
+import Bus12 from "../../assets/back/Bus12.jpeg";
 import { FaSearch } from "react-icons/fa";
 import { useBooking } from "../../context/BookingContext";
 
@@ -90,6 +97,96 @@ function Bus() {
       type: "luxury",
       price: 1800,
     },
+    {
+      id: 8,
+      name: "Sleeper Bus",
+      plate: "RAB 108H",
+      passengers: 35,
+      image: Bus77,
+      type: "luxury",
+      price: 1800,
+    },
+    {
+      id: 8,
+      name: "Sleeper Bus",
+      plate: "RAB 108H",
+      passengers: 35,
+      image: Bus9,
+      type: "luxury",
+      price: 1800,
+    },
+    {
+      id: 8,
+      name: "Sleeper Bus",
+      plate: "RAB 108H",
+      passengers: 35,
+      image: Bus10,
+      type: "luxury",
+      price: 1800,
+    },
+    {
+      id: 8,
+      name: "Sleeper Bus",
+      plate: "RAB 108H",
+      passengers: 35,
+      image: Bus5,
+      type: "luxury",
+      price: 1800,
+    },
+    {
+      id: 8,
+      name: "Sleeper Bus",
+      plate: "RAB 108H",
+      passengers: 35,
+      image: Bus12,
+      type: "luxury",
+      price: 1800,
+    },
+    {
+      id: 8,
+      name: "Sleeper Bus",
+      plate: "RAB 108H",
+      passengers: 35,
+      image: Bus5,
+      type: "luxury",
+      price: 1800,
+    },
+    {
+      id: 8,
+      name: "Luxily Bus",
+      plate: "RAB 108H",
+      passengers: 35,
+      image: Bus00,
+      type: "luxury",
+      price: 1800,
+    },
+    {
+      id: 8,
+      name: "Sleeper Bus",
+      plate: "RAB 108H",
+      passengers: 35,
+      image: Bus5,
+      type: "luxury",
+      price: 1800,
+    },
+    {
+      id: 8,
+      name: "Sleeper Bus",
+      plate: "RAB 108H",
+      passengers: 35,
+      image: Bus11,
+      type: "luxury",
+      price: 1800,
+    },
+    {
+      id: 8,
+      name: "Sleeper Bus",
+      plate: "RAB 108H",
+      passengers: 35,
+      image: Bus8,
+      type: "luxury",
+      price: 1800,
+    },
   ];
 
   const filteredBuses = buses.filter((bus) => {
@@ -155,7 +252,7 @@ function Bus() {
             <img
               src={bus.image}
               alt={bus.name}
-              className="w-full aspect-video object-contain object-center"
+              className="w-full h-[220px] object-cover rounded-lg"
             />
             <div className="px-3 py-4 space-y-4">
               <div className="flex items-center justify-between">

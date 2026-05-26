@@ -33,13 +33,6 @@ const Navbar = () => {
     setOpen(false);
   };
 
-  const handleLogout = () => {
-    localStorage.removeItem("currentUser");
-    setCurrentUser(null);
-    navigate("/login");
-    handleClose();
-  };
-
   return (
     <div className="w-full h-[8ch] bg-neutral-100 dark:bg-neutral-900 flex items-center md:flex-row lg:px-28 md:px-16 sm:px-7 px-4 fixed top-0 z-50">
       {/* Logo section */}
@@ -78,26 +71,6 @@ const Navbar = () => {
 
           {/* Theme */}
           <Theme />
-
-          {/* Auth Links */}
-          {currentUser ? (
-            <div className="flex items-center gap-3"></div>
-          ) : (
-            <div className="flex items-center gap-3">
-              <Link
-                to="/login"
-                onClick={handleClose}
-                className="text-violet-600 hover:text-violet-700">
-                Login
-              </Link>
-              <Link
-                to="/register"
-                onClick={handleClose}
-                className="bg-violet-600 text-white px-4 py-1 rounded-md hover:bg-violet-700">
-                Register
-              </Link>
-            </div>
-          )}
         </div>
       </div>
     </div>
