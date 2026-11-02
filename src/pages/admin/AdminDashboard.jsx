@@ -243,6 +243,7 @@ function AdminDashboard() {
     duration: "",
     price: "",
   });
+  const [editingRouteId, setEditingRouteId] = useState(null);
   const [newBooking, setNewBooking] = useState({
     passenger: "",
     routeId: "",
@@ -330,7 +331,7 @@ function AdminDashboard() {
           to: "Musanze",
           distance: "95km",
           duration: "2.5h",
-          price: "5000",
+          price: 0,
         },
       ]);
     }
@@ -408,7 +409,7 @@ function AdminDashboard() {
           { id: 1, name: "Luxury Bus", plate: "RAB 123A", capacity: 50, type: "Luxury", status: "Active" },
         ]),
         loadRecords(data, "routes", [
-          { id: 1, from: "Kigali", to: "Musanze", distance: "95km", duration: "2.5h", price: "5000" },
+          { id: 1, from: "Kigali", to: "Musanze", distance: "", duration: "", price: 0 },
         ]),
         loadRecords(data, "bookings"),
         loadRecords(data, "payments"),
@@ -481,6 +482,39 @@ function AdminDashboard() {
       window.removeEventListener("app-storage-change", syncSharedRecords);
     };
   }, [navigate]);
+
+  useEffect(() => {
+    if (!dataLoaded) return undefined;
+    let active = true;
+    const refreshLiveRecords = () => {
+      apiRequest("/admin/data")
+        .then(({ data }) => {
+          if (!active) return;
+          const refreshIfChanged = (setter, records) => {
+            if (!Array.isArray(records)) return;
+            setter((current) =>
+              JSON.stringify(current) === JSON.stringify(records)
+                ? current
+                : records,
+            );
+          };
+          refreshIfChanged(setBookings, data.bookings);
+          refreshIfChanged(setPayments, data.payments);
+          refreshIfChanged(setNotifications, data.notifications);
+          refreshIfChanged(setBuses, data.buses);
+        })
+        .catch((error) => {
+          if (active) {
+            console.error("Could not refresh live admin records:", error);
+          }
+        });
+    };
+    const intervalId = window.setInterval(refreshLiveRecords, 10000);
+    return () => {
+      active = false;
+      window.clearInterval(intervalId);
+    };
+  }, [dataLoaded]);
 
   // Save to localStorage
   useEffect(() => {
@@ -700,21 +734,51 @@ function AdminDashboard() {
     }
   };
 
-  const addRoute = () => {
+  const saveRoute = () => {
     if (newRoute.from && newRoute.to) {
       if (!Number.isFinite(Number(newRoute.price)) || Number(newRoute.price) <= 0) {
         addNotification("Route price must be greater than zero RWF.");
         return;
       }
-      const newId = getNextNumericId(routes);
-      setRoutes([
-        ...routes,
-        { id: newId, ...newRoute, price: Number(newRoute.price), currency: "RWF" },
-      ]);
+      if (editingRouteId !== null) {
+        setRoutes(
+          routes.map((route) =>
+            route.id === editingRouteId
+              ? { ...route, ...newRoute, price: Number(newRoute.price), currency: "RWF" }
+              : route,
+          ),
+        );
+        addNotification(`Route fare updated: ${newRoute.from} → ${newRoute.to}`);
+      } else {
+        const newId = getNextNumericId(routes);
+        setRoutes([
+          ...routes,
+          {
+            id: newId,
+            ...newRoute,
+            price: Number(newRoute.price),
+            currency: "RWF",
+            departures: ["06:00 AM", "08:00 AM", "10:00 AM", "12:00 PM", "02:00 PM", "04:00 PM"],
+          },
+        ]);
+        addNotification(`New route added: ${newRoute.from} → ${newRoute.to}`);
+      }
       setNewRoute({ from: "", to: "", distance: "", duration: "", price: "" });
+      setEditingRouteId(null);
       setShowAddRoute(false);
-      addNotification(`New route added: ${newRoute.from} → ${newRoute.to}`);
     }
+  };
+
+  const editRoute = (route) => {
+    setEditingRouteId(route.id);
+    setNewRoute({
+      from: route.from || "",
+      to: route.to || "",
+      distance: route.distance || "",
+      duration: route.duration || "",
+      price: route.price || "",
+    });
+    setShowAddRoute(true);
   };
 
   const addBooking = () => {
@@ -1690,6 +1754,8 @@ function AdminDashboard() {
               <h2 className="text-2xl font-bold">Manage Routes</h2>
               <button
                 onClick={() => {
+                  setEditingRouteId(null);
+                  setNewRoute({ from: "", to: "", distance: "", duration: "", price: "" });
                   setShowAddRoute(true);
                 }}
                 className="bg-violet-600 text-white px-4 py-2 rounded-lg flex items-center gap-2">
@@ -1726,7 +1792,14 @@ function AdminDashboard() {
                       </td>
                       <td className="p-3">
                         <button
+                          onClick={() => editRoute(route)}
+                          aria-label={`Edit ${route.from} to ${route.to} fare`}
+                          className="mr-3 text-violet-600">
+                          <FaEdit />
+                        </button>
+                        <button
                           onClick={() => deleteRoute(route.id)}
+                          aria-label={`Delete ${route.from} to ${route.to} route`}
                           className="text-red-600">
                           <FaTrash />
                         </button>
@@ -2082,7 +2155,7 @@ function AdminDashboard() {
       <Modal
         isOpen={showAddRoute}
         onClose={() => setShowAddRoute(false)}
-        title="Add New Route"
+        title={editingRouteId !== null ? "Edit Route and Fare" : "Add New Route"}
         darkMode={darkMode}>
         <div className="space-y-3">
           <input
@@ -2129,9 +2202,9 @@ function AdminDashboard() {
             className={`w-full p-2 rounded-lg border`}
           />
           <button
-            onClick={addRoute}
+            onClick={saveRoute}
             className="w-full bg-violet-600 text-white py-2 rounded-lg">
-            Add Route
+            {editingRouteId !== null ? "Save Route" : "Add Route"}
           </button>
         </div>
       </Modal>

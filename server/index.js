@@ -47,6 +47,22 @@ const userSchema = new mongoose.Schema(
 
 const User = mongoose.model("User", userSchema);
 const recordModels = new Map();
+const reservationSchema = new mongoose.Schema(
+  {
+    id: { type: String, required: true, unique: true },
+    bookingId: { type: String, required: true },
+    tripKey: { type: String, required: true },
+    travelDate: { type: String, required: true },
+    departTime: { type: String, required: true },
+    seat: { type: Number, required: true },
+  },
+  { collection: "seatReservations", timestamps: true },
+);
+reservationSchema.index(
+  { tripKey: 1, travelDate: 1, departTime: 1, seat: 1 },
+  { unique: true },
+);
+const SeatReservation = mongoose.model("SeatReservation", reservationSchema);
 
 function getRecordModel(collection) {
   if (!collectionNames.includes(collection)) {
@@ -73,7 +89,7 @@ async function ensureCollections() {
       (collection) => collection.name,
     ),
   );
-  const allCollections = ["users", ...collectionNames];
+  const allCollections = ["users", "seatReservations", ...collectionNames];
   for (const name of allCollections) {
     if (!existingCollections.has(name)) {
       await db.createCollection(name);
@@ -81,8 +97,53 @@ async function ensureCollections() {
   }
   await Promise.all([
     User.init(),
+    SeatReservation.init(),
     ...collectionNames.map((name) => getRecordModel(name).init()),
   ]);
+
+  const Routes = getRecordModel("routes");
+  const existingRoutes = await Routes.find({}).select("from to").lean();
+  const routeSeeds = [
+    ["Kigali", "Musanze"],
+    ["Kigali", "Huye"],
+    ["Kigali", "Rubavu"],
+    ["Kigali", "Nyagatare"],
+    ["Kigali", "Rusizi"],
+    ["Kigali", "Muhanga"],
+    ["Kigali", "Rwamagana"],
+    ["Kigali", "Karongi"],
+  ];
+  const missingRoutes = routeSeeds
+    .filter(
+      ([from, to]) =>
+        !existingRoutes.some(
+          (route) =>
+            route.from?.toLowerCase() === from.toLowerCase() &&
+            route.to?.toLowerCase() === to.toLowerCase(),
+        ),
+    )
+    .map(([from, to]) => ({
+      id: `route-${randomUUID()}`,
+      from,
+      to,
+      distance: "",
+      duration: "",
+      price: 0,
+      currency: "RWF",
+      departures: ["06:00 AM", "08:00 AM", "10:00 AM", "12:00 PM", "02:00 PM", "04:00 PM"],
+    }));
+  if (missingRoutes.length) {
+    await Routes.insertMany(missingRoutes);
+    console.log(`Added ${missingRoutes.length} popular Rwanda routes; set their fares in the admin dashboard.`);
+  }
+  await Routes.updateMany(
+    { departures: { $exists: false } },
+    {
+      $set: {
+        departures: ["06:00 AM", "08:00 AM", "10:00 AM", "12:00 PM", "02:00 PM", "04:00 PM"],
+      },
+    },
+  );
 }
 
 app.use(
@@ -195,12 +256,42 @@ function requirePassenger(req, res, next) {
   return next();
 }
 
+function tripKey({ busId, from, to }) {
+  return [busId, from, to].map((value) => String(value).trim().toLowerCase()).join("|");
+}
+
 function validText(value, maxLength) {
   return typeof value === "string" && value.trim().length > 0 && value.length <= maxLength;
 }
 
 app.get("/api/health", (req, res) => {
   res.json({ status: "ok", database: mongoose.connection.readyState === 1 });
+});
+
+app.get("/api/routes", async (req, res, next) => {
+  try {
+    const routes = await getRecordModel("routes").find({}).select("-_id").lean();
+    return res.json({ records: routes });
+  } catch (error) {
+    return next(error);
+  }
+});
+
+app.get("/api/availability", async (req, res, next) => {
+  try {
+    const { busId, from, to, travelDate, departTime } = req.query;
+    if (![busId, from, to, travelDate, departTime].every((value) => validText(value, 120))) {
+      return res.status(400).json({ message: "Choose a bus, route, travel date, and departure time." });
+    }
+    const records = await SeatReservation.find({
+      tripKey: tripKey({ busId, from, to }),
+      travelDate,
+      departTime,
+    }).select("seat -_id").lean();
+    return res.json({ seats: records.map((record) => record.seat) });
+  } catch (error) {
+    return next(error);
+  }
 });
 
 app.post("/api/auth/register", async (req, res, next) => {
@@ -332,6 +423,7 @@ app.get("/api/users/me/bookings", authenticate, requirePassenger, async (req, re
 });
 
 app.post("/api/bookings", authenticate, requirePassenger, async (req, res, next) => {
+  let bookingId;
   try {
     const { booking, payment, bus, route } = req.body;
     if (
@@ -339,7 +431,16 @@ app.post("/api/bookings", authenticate, requirePassenger, async (req, res, next)
       !validText(booking.id, 100) ||
       !validText(booking.from, 120) ||
       !validText(booking.to, 120) ||
+      !validText(booking.travelDate, 20) ||
+      !validText(booking.departTime, 20) ||
+      booking.busId === undefined ||
+      booking.busId === null ||
+      !String(booking.busId).trim() ||
       !Array.isArray(booking.seats) ||
+      booking.seats.length === 0 ||
+      booking.seats.length > 10 ||
+      booking.seats.some((seat) => !Number.isInteger(Number(seat)) || Number(seat) < 1 || Number(seat) > 80) ||
+      new Set(booking.seats.map(Number)).size !== booking.seats.length ||
       !Number.isFinite(Number(booking.amount))
     ) {
       return res.status(400).json({ message: "Booking details are incomplete or invalid." });
@@ -347,8 +448,42 @@ app.post("/api/bookings", authenticate, requirePassenger, async (req, res, next)
 
     const user = await User.findById(req.auth.sub);
     if (!user) return res.status(401).json({ message: "Account not found." });
+    const routes = await getRecordModel("routes")
+      .find({
+        from: new RegExp(`^${String(booking.from).replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}$`, "i"),
+        to: new RegExp(`^${String(booking.to).replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}$`, "i"),
+      })
+      .select("-_id")
+      .lean();
+    const selectedRoute = routes.find(
+      (candidate) =>
+        !candidate.busId || String(candidate.busId) === String(booking.busId),
+    );
+    const unitPrice = Number(selectedRoute?.price);
+    if (!selectedRoute || !Number.isFinite(unitPrice) || unitPrice <= 0) {
+      return res.status(409).json({ message: "The fare for this route has not been set by the administrator yet." });
+    }
+    const expectedAmount = unitPrice * booking.seats.length;
+    if (Number(booking.amount) !== expectedAmount) {
+      return res.status(409).json({ message: "The fare changed. Review the current route price before paying." });
+    }
+    bookingId = booking.id;
+    const reservedSeats = booking.seats.map(Number);
+    const trip = tripKey(booking);
+    await SeatReservation.insertMany(
+      reservedSeats.map((seat) => ({
+        id: randomUUID(),
+        bookingId,
+        tripKey: trip,
+        travelDate: booking.travelDate,
+        departTime: booking.departTime,
+        seat,
+      })),
+      { ordered: true },
+    );
     const savedBooking = {
       ...booking,
+      seats: reservedSeats,
       userId: user._id.toString(),
       passenger: user.name,
       email: user.email,
@@ -375,24 +510,23 @@ app.post("/api/bookings", authenticate, requirePassenger, async (req, res, next)
         saveRecord("buses", { ...bus, id: existingBus?.id ?? `bus-${randomUUID()}` }),
       );
     }
-    if (route && validText(route.from, 120) && validText(route.to, 120)) {
-      const Route = getRecordModel("routes");
-      const existingRoute = await Route.findOne({
-        from: route.from,
-        to: route.to,
-        ...(route.busId ? { busId: route.busId } : {}),
-      });
-      tasks.push(
-        saveRecord("routes", { ...route, id: existingRoute?.id ?? `route-${randomUUID()}` }),
-      );
-    }
     await Promise.all(tasks);
     await addNotification(
       "booking",
       `${user.name} booked ${savedBooking.busName || "a bus"} (${savedBooking.from} - ${savedBooking.to}), seat(s) ${savedBooking.seats.join(", ")}. Total: RWF ${Number(savedBooking.amount).toLocaleString()}.`,
-    );
+    ).catch((notificationError) => {
+      console.error("Could not save booking notification:", notificationError);
+    });
     return res.status(201).json({ booking: savedBooking });
   } catch (error) {
+    if (bookingId) {
+      await SeatReservation.deleteMany({ bookingId }).catch((cleanupError) => {
+        console.error("Could not release seats after booking failure:", cleanupError);
+      });
+    }
+    if (error.code === 11000) {
+      return res.status(409).json({ message: "One or more selected seats have just been booked. Choose different seats." });
+    }
     return next(error);
   }
 });

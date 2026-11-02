@@ -1,50 +1,30 @@
-import React from "react";
+import React, { useEffect, useState } from "react";
 import { useBooking } from "../../context/BookingContext";
+import { publicRequest } from "../../utils/api";
 
 function Destination() {
   const { booking, setFrom, setTo } = useBooking();
+  const [routes, setRoutes] = useState([]);
+  const [loadError, setLoadError] = useState("");
 
-  // Rwanda Locations
-  const locations = [
-    // Kigali
-    "Kigali - Nyarugenge",
-    "Kigali - Gasabo",
-    "Kigali - Kicukiro",
+  useEffect(() => {
+    let active = true;
+    publicRequest("/routes")
+      .then(({ records }) => {
+        if (active) setRoutes(records);
+      })
+      .catch((error) => {
+        if (active) setLoadError(error.message);
+      });
+    return () => {
+      active = false;
+    };
+  }, []);
 
-    // Northern Province
-    "Musanze",
-    "Burera",
-    "Gicumbi",
-    "Rulindo",
-    "Gakenke",
-
-    // Southern Province
-    "Huye",
-    "Nyanza",
-    "Nyamagabe",
-    "Ruhango",
-    "Muhanga",
-    "Kamonyi",
-    "Gisagara",
-
-    // Western Province
-    "Rubavu",
-    "Rusizi",
-    "Nyamasheke",
-    "Karongi",
-    "Rutsiro",
-    "Ngororero",
-    "Nyabihu",
-
-    // Eastern Province
-    "Nyagatare",
-    "Gatsibo",
-    "Kayonza",
-    "Rwamagana",
-    "Kirehe",
-    "Ngoma",
-    "Bugesera",
-  ].sort();
+  const locations = [...new Set(routes.map((route) => route.from))].sort();
+  const destinations = routes
+    .filter((route) => route.from === booking.from)
+    .map((route) => route.to);
 
   return (
     <div className="w-full space-y-5">
@@ -57,6 +37,11 @@ function Destination() {
         <p className="text-sm text-neutral-500 mt-1">
           Select your departure and arrival locations
         </p>
+        {loadError && (
+          <p role="alert" className="text-sm text-red-600">
+            Could not load routes: {loadError}
+          </p>
+        )}
       </div>
 
       {/* SELECTS */}
@@ -101,9 +86,7 @@ function Destination() {
             className="w-full text-neutral-800 dark:text-neutral-100 bg-neutral-100 dark:bg-neutral-900 px-4 h-12 border border-neutral-300 dark:border-neutral-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-violet-500">
             <option value="">Select Arrival Location</option>
 
-            {locations
-              .filter((loc) => loc !== booking.from)
-              .map((loc) => (
+            {destinations.map((loc) => (
                 <option key={loc} value={loc}>
                   {loc}
                 </option>

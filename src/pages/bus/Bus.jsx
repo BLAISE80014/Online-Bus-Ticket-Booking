@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import Bus1 from "../../assets/Bus1.png";
 import Bus00 from "../../assets/back/Buss1.jpeg";
@@ -18,6 +18,7 @@ import Bus12 from "../../assets/back/Bus12.jpeg";
 import { FaSearch } from "react-icons/fa";
 import { useBooking } from "../../context/BookingContext";
 import { useLanguage } from "../../context/LanguageContext";
+import { publicRequest } from "../../utils/api";
 
 function Bus() {
   const navigate = useNavigate();
@@ -25,6 +26,9 @@ function Bus() {
   const { t } = useLanguage();
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedType, setSelectedType] = useState("");
+  const [route, setRoute] = useState(null);
+  const [routeLoading, setRouteLoading] = useState(true);
+  const [routeError, setRouteError] = useState("");
 
   const buses = [
     {
@@ -34,7 +38,6 @@ function Bus() {
       passengers: 60,
       image: Bus1,
       type: "tourist",
-      price: 750,
       company: "SmartBus Travels",
     },
     {
@@ -44,7 +47,6 @@ function Bus() {
       passengers: 50,
       image: Bus0,
       type: "deluxe",
-      price: 850,
       company: "City Rider",
     },
     {
@@ -54,7 +56,6 @@ function Bus() {
       passengers: 40,
       image: Bus3,
       type: "luxury",
-      price: 1200,
       company: "Royal Connect",
     },
     {
@@ -64,7 +65,6 @@ function Bus() {
       passengers: 55,
       image: Bus4,
       type: "tourist",
-      price: 680,
       company: "FastLine Express",
     },
     {
@@ -74,7 +74,6 @@ function Bus() {
       passengers: 60,
       image: Bus7,
       type: "tourist",
-      price: 500,
       company: "Urban Transit",
     },
     {
@@ -84,7 +83,6 @@ function Bus() {
       passengers: 45,
       image: Bus6,
       type: "luxury",
-      price: 1500,
       company: "Premium Ride",
     },
     {
@@ -94,7 +92,6 @@ function Bus() {
       passengers: 65,
       image: Bus2,
       type: "tourist",
-      price: 600,
       company: "Comfort Coaches",
     },
     {
@@ -104,7 +101,6 @@ function Bus() {
       passengers: 35,
       image: Bus5,
       type: "luxury",
-      price: 1800,
       company: "Night Star",
     },
     {
@@ -114,7 +110,6 @@ function Bus() {
       passengers: 30,
       image: Bus77,
       type: "luxury",
-      price: 1950,
       company: "Voyage Elite",
     },
     {
@@ -124,7 +119,6 @@ function Bus() {
       passengers: 42,
       image: Bus9,
       type: "deluxe",
-      price: 980,
       company: "Safari Motors",
     },
     {
@@ -134,7 +128,6 @@ function Bus() {
       passengers: 38,
       image: Bus10,
       type: "tourist",
-      price: 720,
       company: "GreenLine",
     },
     {
@@ -144,7 +137,6 @@ function Bus() {
       passengers: 47,
       image: Bus12,
       type: "deluxe",
-      price: 890,
       company: "Highway Travel",
     },
     {
@@ -154,7 +146,6 @@ function Bus() {
       passengers: 34,
       image: Bus00,
       type: "luxury",
-      price: 2100,
       company: "Max Ride",
     },
     {
@@ -164,7 +155,6 @@ function Bus() {
       passengers: 52,
       image: Bus8,
       type: "tourist",
-      price: 650,
       company: "Airport Transit",
     },
     {
@@ -174,31 +164,49 @@ function Bus() {
       passengers: 29,
       image: Bus11,
       type: "luxury",
-      price: 2200,
       company: "VIP Journey",
     },
   ];
+
+  useEffect(() => {
+    let active = true;
+    publicRequest("/routes")
+      .then(({ records }) => {
+        if (!active) return;
+        const selectedRoute = records.find(
+          (item) =>
+            item.from?.toLowerCase() === booking.from.toLowerCase() &&
+            item.to?.toLowerCase() === booking.to.toLowerCase(),
+        );
+        setRoute(selectedRoute || null);
+      })
+      .catch((error) => {
+        if (active) setRouteError(error.message);
+      })
+      .finally(() => {
+        if (active) setRouteLoading(false);
+      });
+    return () => {
+      active = false;
+    };
+  }, [booking.from, booking.to]);
 
   const filteredBuses = buses.filter((bus) => {
     const matchesSearch = bus.name
       .toLowerCase()
       .includes(searchTerm.toLowerCase());
     const matchesType = selectedType === "" || bus.type === selectedType;
-    return matchesSearch && matchesType;
+    return matchesSearch && matchesType && route;
   });
 
   const handleBusClick = (bus) => {
-    setBus(bus.type, bus.id, bus.price, bus.name, bus);
+    if (!route || Number(route.price) <= 0) return;
+    const selectedBus = { ...bus, price: Number(route.price), routeInfo: route };
+    setBus(bus.type, bus.id, Number(route.price), bus.name, selectedBus);
     navigate("/bus/detail", {
       state: {
-        id: bus.id,
-        name: bus.name,
-        plate: bus.plate,
+        ...selectedBus,
         rating: 4.5,
-        price: bus.price,
-        company: bus.company,
-        image: bus.image,
-        type: bus.type,
       },
     });
   };
@@ -240,7 +248,19 @@ function Bus() {
         {booking.from && booking.to && ` from ${booking.from} to ${booking.to}`}
       </div>
 
-      {filteredBuses.length === 0 ? (
+      {routeLoading ? (
+        <div className="rounded-2xl border border-neutral-200 p-10 text-center text-neutral-600 dark:border-neutral-700 dark:text-neutral-300">
+          Loading route and fare...
+        </div>
+      ) : routeError ? (
+        <div className="rounded-2xl border border-red-300 bg-red-50 p-10 text-center text-red-700 dark:border-red-900 dark:bg-red-950/30 dark:text-red-300">
+          Could not load this route: {routeError}
+        </div>
+      ) : !route ? (
+        <div className="rounded-2xl border border-dashed border-neutral-300 bg-neutral-100 p-10 text-center text-neutral-600 dark:border-neutral-700 dark:bg-neutral-900/40 dark:text-neutral-300">
+          This route is not configured. Select one of the available Rwanda routes.
+        </div>
+      ) : filteredBuses.length === 0 ? (
         <div className="rounded-2xl border border-dashed border-neutral-300 bg-neutral-100 p-10 text-center text-neutral-600 dark:border-neutral-700 dark:bg-neutral-900/40 dark:text-neutral-300">
           {t("No buses match your current search. Try a different route or bus type.")}
         </div>
@@ -272,12 +292,17 @@ function Bus() {
 
                 <div className="flex items-center justify-between text-sm text-neutral-600 dark:text-neutral-300">
                   <span>{bus.passengers} seats</span>
-                  <span>RWF {bus.price}</span>
+                  {Number(route.price) > 0 ? (
+                    <span>RWF {Number(route.price).toLocaleString()}</span>
+                  ) : (
+                    <span className="text-amber-600">Fare not set</span>
+                  )}
                 </div>
 
                 <button
                   type="button"
-                  className="w-full rounded-lg bg-violet-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-violet-700">
+                  disabled={Number(route.price) <= 0}
+                  className="w-full rounded-lg bg-violet-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-violet-700 disabled:cursor-not-allowed disabled:opacity-50">
                   View Details
                 </button>
               </div>

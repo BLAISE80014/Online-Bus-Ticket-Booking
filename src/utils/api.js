@@ -29,3 +29,14 @@ export async function persistCollection(collection, records) {
     body: { records },
   });
 }
+
+export async function publicRequest(path) {
+  const response = await fetch(`${API_URL}${path}`);
+  const result = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    const error = new Error(result.message || `Request failed (${response.status}).`);
+    window.dispatchEvent(new CustomEvent("api-error", { detail: error.message }));
+    throw error;
+  }
+  return result;
+}

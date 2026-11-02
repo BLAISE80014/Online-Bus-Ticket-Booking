@@ -7,7 +7,6 @@ import {
   FaMapMarkerAlt,
   FaCouch,
   FaBus,
-  FaPhoneAlt,
   FaClock,
   FaRoute,
   FaShieldAlt,
@@ -32,13 +31,20 @@ function Detail() {
     name: "Luxury Express",
     plate: "RAB 123A",
     rating: 4.8,
-    price: booking.busPrice || 750,
+    price: booking.busPrice || 0,
     type: "luxury",
     company: "SmartBus Travels",
     image: Bus1,
   };
 
-  const tripPrice = Number(busData.price ?? booking.busPrice ?? 750);
+  const tripPrice = Number(busData.price ?? booking.busPrice ?? 0);
+  const canCheckout =
+    Boolean(booking.from) &&
+    Boolean(booking.to) &&
+    Boolean(booking.travelDate) &&
+    Boolean(booking.departTime) &&
+    booking.selectedSeats.length > 0 &&
+    tripPrice > 0;
 
   useEffect(() => {
     if (location.state) {
@@ -189,7 +195,7 @@ function Detail() {
               </div>
 
               <h3 className="mt-3 text-lg font-bold dark:text-white">
-                08:00 AM
+                {booking.departTime || "Select a departure"}
               </h3>
             </div>
 
@@ -200,7 +206,7 @@ function Detail() {
               </div>
 
               <h3 className="mt-3 text-lg font-bold dark:text-white">
-                12:30 PM
+                {busData.routeInfo?.arrivalTime || "Not set"}
               </h3>
             </div>
 
@@ -210,7 +216,9 @@ function Detail() {
                 <p className="font-semibold">Duration</p>
               </div>
 
-              <h3 className="mt-3 text-lg font-bold dark:text-white">4h 30m</h3>
+              <h3 className="mt-3 text-lg font-bold dark:text-white">
+                {busData.routeInfo?.duration || "Not set"}
+              </h3>
             </div>
 
             <div className="bg-white dark:bg-neutral-900 shadow-md rounded-2xl p-5">
@@ -219,7 +227,9 @@ function Detail() {
                 <p className="font-semibold">Distance</p>
               </div>
 
-              <h3 className="mt-3 text-lg font-bold dark:text-white">112 KM</h3>
+              <h3 className="mt-3 text-lg font-bold dark:text-white">
+                {busData.routeInfo?.distance || "Not set"}
+              </h3>
             </div>
           </div>
 
@@ -228,7 +238,7 @@ function Detail() {
             <h2 className="text-xl font-bold dark:text-white">Route</h2>
 
             <p className="mt-3 text-violet-600 font-semibold text-lg">
-              Kigali → Musanze
+              {booking.from || "Select departure"} → {booking.to || "Select destination"}
             </p>
           </div>
         </div>
@@ -257,33 +267,6 @@ function Detail() {
         </div>
       </div>
 
-      {/* DRIVER INFO */}
-      <div className="mt-16 bg-white dark:bg-neutral-900 rounded-3xl shadow-lg p-8">
-        <h2 className="text-3xl font-bold dark:text-white mb-8">
-          Driver Information
-        </h2>
-
-        <div className="flex items-center gap-6">
-          <img
-            src="https://i.pravatar.cc/150"
-            alt="Driver"
-            className="w-24 h-24 rounded-full object-cover"
-          />
-
-          <div>
-            <h3 className="text-2xl font-bold dark:text-white">John Driver</h3>
-
-            <p className="text-neutral-500 mt-2">10 Years Experience</p>
-
-            <div className="flex items-center gap-2 mt-3 text-violet-600">
-              <FaPhoneAlt />
-
-              <span>+250 788 000 000</span>
-            </div>
-          </div>
-        </div>
-      </div>
-
       {/* BOOKING SECTION */}
       <div className="mt-16 grid grid-cols-1 lg:grid-cols-2 gap-10">
         {/* BOOKING FORM */}
@@ -298,10 +281,6 @@ function Detail() {
 
           <Seat />
 
-          {/* AVAILABLE SEATS */}
-          <div className="bg-green-100 text-green-700 rounded-xl px-4 py-3 w-fit">
-            12 Seats Available
-          </div>
         </div>
 
         {/* BOOKING SUMMARY */}
@@ -314,19 +293,27 @@ function Detail() {
             <div className="flex justify-between">
               <span className="text-neutral-500">Selected Seat</span>
 
-              <span className="font-semibold dark:text-white">A12</span>
+              <span className="font-semibold dark:text-white">
+                {booking.selectedSeats.length
+                  ? booking.selectedSeats.join(", ")
+                  : "None"}
+              </span>
             </div>
 
             <div className="flex justify-between">
               <span className="text-neutral-500">Travel Date</span>
 
-              <span className="font-semibold dark:text-white">25 May 2026</span>
+              <span className="font-semibold dark:text-white">
+                {booking.travelDate || "Not selected"}
+              </span>
             </div>
 
             <div className="flex justify-between">
               <span className="text-neutral-500">Ticket Quantity</span>
 
-              <span className="font-semibold dark:text-white">1 Ticket</span>
+              <span className="font-semibold dark:text-white">
+                {booking.selectedSeats.length} Ticket(s)
+              </span>
             </div>
 
             <hr className="dark:border-neutral-700" />
@@ -334,14 +321,24 @@ function Detail() {
             <div className="flex justify-between text-2xl font-bold">
               <span className="dark:text-white">Total</span>
 
-              <span className="text-violet-600">RWF {tripPrice}</span>
+              <span className="text-violet-600">
+                RWF {(booking.selectedSeats.length * tripPrice).toLocaleString()}
+              </span>
             </div>
 
             {/* CHECKOUT BUTTON */}
             <Link
-              to={"/bus/detail/checkout"}
-              className="mt-8 block w-full bg-violet-600 hover:bg-violet-700 hover:scale-[1.02] transition-all duration-300 text-white text-center py-4 rounded-2xl font-semibold text-lg shadow-lg">
-              Proceed to Checkout
+              to={canCheckout ? "/bus/detail/checkout" : "#"}
+              onClick={(event) => {
+                if (!canCheckout) event.preventDefault();
+              }}
+              aria-disabled={!canCheckout}
+              className={`mt-8 block w-full text-center py-4 rounded-2xl font-semibold text-lg shadow-lg transition-all duration-300 ${
+                canCheckout
+                  ? "bg-violet-600 text-white hover:bg-violet-700 hover:scale-[1.02]"
+                  : "cursor-not-allowed bg-neutral-300 text-neutral-500"
+              }`}>
+              {tripPrice > 0 ? "Proceed to Checkout" : "Fare not configured"}
             </Link>
           </div>
         </div>

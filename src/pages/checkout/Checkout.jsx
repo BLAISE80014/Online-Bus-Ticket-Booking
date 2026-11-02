@@ -8,8 +8,6 @@ import {
   FaShieldAlt,
   FaCheckCircle,
   FaSpinner,
-  FaLock,
-  FaKey,
   FaEnvelope,
   FaSms,
   FaWhatsapp,
@@ -29,10 +27,6 @@ function Checkout() {
   const [paymentDetails, setPaymentDetails] = useState({});
   const [processing, setProcessing] = useState(false);
   const [paymentComplete, setPaymentComplete] = useState(false);
-  const [showPinModal, setShowPinModal] = useState(false);
-  const [pin, setPin] = useState("");
-  const [pinError, setPinError] = useState("");
-  const [paymentStatus, setPaymentStatus] = useState("");
   const [transactionId, setTransactionId] = useState("");
 
   const [formData, setFormData] = useState({
@@ -53,7 +47,7 @@ function Checkout() {
 
   const recordBooking = async (transactionRef, amount, status, paymentState) => {
     const bookingId = `BK${Date.now()}`;
-    const dateTime = [booking.travelDate, booking.departTime || booking.travelTime]
+    const dateTime = [booking.travelDate, booking.departTime]
       .filter(Boolean)
       .join(" ");
     const bookingRecord = {
@@ -64,7 +58,9 @@ function Checkout() {
       routeId: `${booking.from} - ${booking.to}`,
       from: booking.from,
       to: booking.to,
-      dateTime: dateTime || "Date not selected",
+      travelDate: booking.travelDate,
+      departTime: booking.departTime,
+      dateTime,
       busName: booking.busName || "Bus",
       busId: booking.busId,
       company: booking.busDetails?.company || "",
@@ -81,7 +77,10 @@ function Checkout() {
       bookingId,
       amount,
       status: paymentState,
-      method: paymentMethod,
+      method:
+        paymentMethod === "mobile"
+          ? `Mobile Money (${paymentDetails.provider})`
+          : paymentMethod,
       date: new Date().toISOString().split("T")[0],
       passenger: bookingRecord.passenger,
       email: bookingRecord.email,
@@ -124,50 +123,12 @@ function Checkout() {
       }
     }
 
-    const savedRoutes = JSON.parse(localStorage.getItem("routes") || "[]");
-    let routeRecord;
-    if (booking.from && booking.to) {
-      const existingRoute = savedRoutes.find(
-        (route) =>
-          route.from?.toLowerCase() === booking.from.toLowerCase() &&
-          route.to?.toLowerCase() === booking.to.toLowerCase() &&
-          (route.busId === booking.busId || !route.busId),
-      );
-      if (existingRoute) {
-        routeRecord = {
-          ...existingRoute,
-          busId: booking.busId,
-          busName: booking.busName || existingRoute.busName || "",
-          company: booking.busDetails?.company || existingRoute.company || "",
-          price: amount / Math.max(booking.selectedSeats.length, 1),
-          currency: "RWF",
-        };
-      } else {
-        const numericIds = savedRoutes
-          .map((route) => Number(route.id))
-          .filter(Number.isFinite);
-        routeRecord = {
-          id: Math.max(0, ...numericIds) + 1,
-          from: booking.from,
-          to: booking.to,
-          distance: "",
-          duration: "",
-          busId: booking.busId,
-          busName: booking.busName || "",
-          company: booking.busDetails?.company || "",
-          price: amount / Math.max(booking.selectedSeats.length, 1),
-          currency: "RWF",
-        };
-      }
-    }
-
     await apiRequest("/bookings", {
       method: "POST",
       body: {
         booking: bookingRecord,
         payment: paymentRecord,
         bus: busRecord,
-        route: routeRecord,
       },
     });
   };
@@ -192,265 +153,15 @@ function Checkout() {
       alert("Please select at least one seat");
       return false;
     }
-    if (!booking.from || !booking.to) {
-      alert("Please select departure and arrival locations");
+    if (!booking.from || !booking.to || !booking.travelDate || !booking.departTime) {
+      alert("Please select a route, travel date, and departure time.");
+      return false;
+    }
+    if (!booking.busId || !Number.isFinite(Number(booking.busPrice)) || Number(booking.busPrice) <= 0) {
+      alert("Select a bus on a route with an administrator-configured fare.");
       return false;
     }
     return true;
-  };
-
-  // Function to send SMS
-  const sendSMS = (phoneNumber, message) => {
-    console.log(`Sending SMS to ${phoneNumber}: ${message}`);
-    // In real app, this would call an SMS API
-    alert(`📱 SMS sent to ${phoneNumber}\n\nMessage: ${message}`);
-  };
-
-  // Function to send Email
-  const sendEmail = (email, subject, message) => {
-    console.log(`Sending email to ${email}: ${subject}`);
-    // In real app, this would call an email API
-    alert(
-      `📧 Email sent to ${email}\n\nSubject: ${subject}\n\nMessage: ${message}`,
-    );
-  };
-
-  // Process Mobile Money Payment with PIN
-  const processMobileMoneyPayment = () => {
-    if (!paymentDetails.mobileNumber) {
-      alert("Please enter your mobile number");
-      return false;
-    }
-    if (!paymentDetails.provider) {
-      alert("Please select your mobile money provider");
-      return false;
-    }
-    setShowPinModal(true);
-    return true;
-  };
-
-  // Verify PIN and complete payment
-  const verifyPinAndPay = () => {
-    if (pin.length !== 4) {
-      setPinError("PIN must be 4 digits");
-      return;
-    }
-
-    setPinError("");
-    setProcessing(true);
-    setShowPinModal(false);
-    setPaymentStatus("processing");
-
-    const totalAmount =
-      booking.selectedSeats.length * (booking.busPrice || 750);
-    const transactionRef = "TXN" + Math.floor(Math.random() * 1000000000);
-
-    // Simulate payment processing
-    setTimeout(async () => {
-      try {
-        await recordBooking(transactionRef, totalAmount, "Confirmed", "Completed");
-      } catch (requestError) {
-        setProcessing(false);
-        setPaymentStatus("error");
-        alert(`Booking could not be saved: ${requestError.message}`);
-        return;
-      }
-      setProcessing(false);
-      setPaymentComplete(true);
-      setTransactionId(transactionRef);
-      setPaymentStatus("success");
-
-      // Send SMS confirmation
-      const smsMessage = `✅ BUS BOOKING CONFIRMED!\n\nReference: ${transactionRef}\nRoute: ${booking.from} → ${booking.to}\nSeats: ${booking.selectedSeats.join(", ")}\n      Amount: RWF ${Number(totalAmount).toLocaleString()}\nPayment: Mobile Money\n\nThank you for choosing us!`;
-      sendSMS(paymentDetails.mobileNumber, smsMessage);
-
-      // Send WhatsApp message (simulated)
-      const whatsappMessage = `*Bus Booking Confirmation* 🚌\n\nReference: ${transactionRef}\nPassenger: ${formData.fullname}\nRoute: ${booking.from} → ${booking.to}\nDate: ${booking.travelDate}\nTime: ${booking.departTime}\nSeats: ${booking.selectedSeats.join(", ")}\n      Amount: RWF ${Number(totalAmount).toLocaleString()}\n\nThank you for booking with us!`;
-      alert(
-        `💬 WhatsApp message sent to ${paymentDetails.mobileNumber}\n\n${whatsappMessage}`,
-      );
-
-      // Send Email confirmation
-      const emailSubject = `Booking Confirmation - ${transactionRef}`;
-      const emailMessage = `
-Dear ${formData.fullname},
-
-Your bus booking has been confirmed successfully!
-
-Booking Details:
------------------
-Reference Number: ${transactionRef}
-Route: ${booking.from} → ${booking.to}
-Date: ${booking.travelDate}
-Departure Time: ${booking.departTime}
-Selected Seats: ${booking.selectedSeats.join(", ")}
-Number of Seats: ${booking.selectedSeats.length}
-Total Amount: RWF ${Number(totalAmount).toLocaleString()}
-Payment Method: Mobile Money (${paymentDetails.provider})
-Payment Status: ✅ COMPLETED
-
-Passenger Information:
----------------------
-Name: ${formData.fullname}
-Email: ${formData.email}
-Phone: ${formData.phone}
-
-Important Information:
----------------------
-- Please arrive at the bus station 30 minutes before departure
-- Present this email or your ID for boarding
-- Keep your reference number for any inquiries
-
-Thank you for choosing our service!
-
-Best regards,
-Bus Booking Team
-      `;
-      sendEmail(formData.email, emailSubject, emailMessage);
-
-      // Show success message
-      setTimeout(() => {
-        alert(
-          `✅ PAYMENT SUCCESSFUL!\n\nTransaction ID: ${transactionRef}\n          Amount: RWF ${Number(totalAmount).toLocaleString()}\n\n📱 SMS sent to ${paymentDetails.mobileNumber}\n📧 Email sent to ${formData.email}\n💬 WhatsApp message sent\n\nThank you for booking with us!`,
-        );
-        resetBooking();
-        navigate("/");
-      }, 1500);
-    }, 3000);
-  };
-
-  // Process Card Payment
-  const processCardPayment = () => {
-    if (
-      !paymentDetails.cardNumber ||
-      !paymentDetails.expiry ||
-      !paymentDetails.cvv
-    ) {
-      alert("Please enter complete card details");
-      return;
-    }
-
-    setProcessing(true);
-    setPaymentStatus("processing");
-
-    const totalAmount =
-      booking.selectedSeats.length * (booking.busPrice || 750);
-    const transactionRef = "TXN" + Math.floor(Math.random() * 1000000000);
-
-    setTimeout(async () => {
-      try {
-        await recordBooking(transactionRef, totalAmount, "Confirmed", "Completed");
-      } catch (requestError) {
-        setProcessing(false);
-        setPaymentStatus("error");
-        alert(`Booking could not be saved: ${requestError.message}`);
-        return;
-      }
-      setProcessing(false);
-      setPaymentComplete(true);
-      setTransactionId(transactionRef);
-      setPaymentStatus("success");
-
-      // Send SMS
-      sendSMS(
-        formData.phone,
-        `✅ Booking confirmed! Ref: ${transactionRef} Amount: RWF ${Number(totalAmount).toLocaleString()}`,
-      );
-
-      // Send Email
-      sendEmail(
-        formData.email,
-        "Booking Confirmation",
-        `Your booking ${transactionRef} has been confirmed. Route: ${booking.from} → ${booking.to}`,
-      );
-
-      alert(
-        `✅ Card Payment Successful!\n\nTransaction ID: ${transactionRef}\nAmount: RWF ${Number(totalAmount).toLocaleString()}\n\nConfirmation sent to ${formData.email} and ${formData.phone}`,
-      );
-      resetBooking();
-      navigate("/");
-    }, 2500);
-  };
-
-  // Process Bank Transfer
-  const processBankPayment = () => {
-    if (!paymentDetails.accountNumber || !paymentDetails.bankName) {
-      alert("Please enter bank account details");
-      return;
-    }
-
-    setProcessing(true);
-    setPaymentStatus("processing");
-
-    const totalAmount =
-      booking.selectedSeats.length * (booking.busPrice || 750);
-    const transactionRef = "TXN" + Math.floor(Math.random() * 1000000000);
-
-    setTimeout(async () => {
-      try {
-        await recordBooking(transactionRef, totalAmount, "Pending", "Pending");
-      } catch (requestError) {
-        setProcessing(false);
-        setPaymentStatus("error");
-        alert(`Booking could not be saved: ${requestError.message}`);
-        return;
-      }
-      setProcessing(false);
-      setPaymentComplete(true);
-      setTransactionId(transactionRef);
-      setPaymentStatus("success");
-
-      sendEmail(
-        formData.email,
-        "Booking Confirmation - Bank Transfer",
-        `Your booking ${transactionRef} is confirmed. Please complete the bank transfer within 24 hours.`,
-      );
-
-      alert(
-        `✅ Booking Confirmed!\n\nTransaction ID: ${transactionRef}\nPlease complete the bank transfer within 24 hours.\n\nConfirmation sent to ${formData.email}`,
-      );
-      resetBooking();
-      navigate("/");
-    }, 2000);
-  };
-
-  // Process Cash Payment
-  const processCashPayment = () => {
-    setProcessing(true);
-
-    const totalAmount =
-      booking.selectedSeats.length * (booking.busPrice || 750);
-    const transactionRef = "TXN" + Math.floor(Math.random() * 1000000000);
-
-    setTimeout(async () => {
-      try {
-        await recordBooking(transactionRef, totalAmount, "Pending", "Pending");
-      } catch (requestError) {
-        setProcessing(false);
-        setPaymentStatus("error");
-        alert(`Booking could not be saved: ${requestError.message}`);
-        return;
-      }
-      setProcessing(false);
-      setPaymentComplete(true);
-      setTransactionId(transactionRef);
-
-      sendSMS(
-        formData.phone,
-        `Booking reserved! Ref: ${transactionRef}. Pay RWF ${Number(totalAmount).toLocaleString()} cash at departure.`,
-      );
-      sendEmail(
-        formData.email,
-        "Booking Reserved - Cash Payment",
-        `Your booking ${transactionRef} is reserved. Please pay RWF ${Number(totalAmount).toLocaleString()} in cash at the bus station.`,
-      );
-
-      alert(
-        `✅ Booking Reserved!\n\nReference: ${transactionRef}\nAmount to pay: RWF ${Number(totalAmount).toLocaleString()}\n\nPlease pay cash at the bus station before departure.\n\nConfirmation sent to ${formData.email}`,
-      );
-      resetBooking();
-      navigate("/");
-    }, 1500);
   };
 
   const processPayment = () => {
@@ -458,23 +169,25 @@ Bus Booking Team
       alert("Please select a payment method");
       return;
     }
-
-    switch (paymentMethod) {
-      case "mobile":
-        processMobileMoneyPayment();
-        break;
-      case "card":
-        processCardPayment();
-        break;
-      case "bank":
-        processBankPayment();
-        break;
-      case "cash":
-        processCashPayment();
-        break;
-      default:
-        alert("Invalid payment method");
+    if (
+      paymentMethod === "mobile" &&
+      (!paymentDetails.mobileNumber || !paymentDetails.provider)
+    ) {
+      alert("Select a mobile money provider and enter your phone number.");
+      return;
     }
+
+    setProcessing(true);
+    const transactionRef = `TXN${Date.now()}`;
+    recordBooking(transactionRef, totalAmount, "Pending Payment", "Pending")
+      .then(() => {
+        setTransactionId(transactionRef);
+        setPaymentComplete(true);
+      })
+      .catch((requestError) => {
+        alert(`Booking could not be saved: ${requestError.message}`);
+      })
+      .finally(() => setProcessing(false));
   };
 
   const handleNextStep = (e) => {
@@ -486,7 +199,7 @@ Bus Booking Team
     }
   };
 
-  const seatPrice = booking.busPrice || 750;
+  const seatPrice = Number(booking.busPrice) || 0;
   const totalAmount = booking.selectedSeats.length * seatPrice;
 
   const paymentMethods = [
@@ -495,21 +208,21 @@ Bus Booking Team
       name: "Mobile Money",
       icon: FaMobile,
       color: "bg-green-500",
-      description: "Pay using MTN, Airtel, or Tigo Money",
+      description: "Choose MTN MoMo or Airtel Money",
     },
     {
       id: "card",
       name: "Credit/Debit Card",
       icon: FaCreditCard,
       color: "bg-blue-500",
-      description: "Visa, Mastercard, American Express",
+      description: "Card option (demo only; no card details requested)",
     },
     {
       id: "bank",
       name: "Bank Transfer",
       icon: FaUniversity,
       color: "bg-purple-500",
-      description: "Direct bank transfer",
+      description: "Bank option (demo only; no bank details requested)",
     },
     {
       id: "cash",
@@ -521,10 +234,64 @@ Bus Booking Team
   ];
 
   const mobileProviders = [
-    { name: "MTN Mobile Money", code: "MTN", prefix: "0788" },
-    { name: "Airtel Money", code: "AIRTEL", prefix: "0782" },
-    { name: "Tigo Cash", code: "TIGO", prefix: "0783" },
+    { name: "MTN Mobile Money", code: "MTN" },
+    { name: "Airtel Money", code: "AIRTEL" },
   ];
+
+  if (paymentComplete) {
+    return (
+      <div className="w-full max-w-2xl mx-auto lg:px-10 px-4 mt-[13ch] mb-[8ch]">
+        <div className="rounded-2xl bg-white p-8 shadow-lg dark:bg-neutral-900">
+          <FaCheckCircle className="mx-auto mb-4 text-5xl text-green-600" />
+          <h1 className="text-center text-3xl font-bold">
+            Booking request saved
+          </h1>
+          <p className="mt-2 text-center text-neutral-500">
+            Reference: <strong>{transactionId}</strong>
+          </p>
+          <dl className="mt-8 grid grid-cols-2 gap-4 border-y py-6">
+            <dt>Passenger</dt>
+            <dd className="text-right font-medium">{formData.fullname}</dd>
+            <dt>Route</dt>
+            <dd className="text-right font-medium">
+              {booking.from} → {booking.to}
+            </dd>
+            <dt>Travel</dt>
+            <dd className="text-right font-medium">
+              {booking.travelDate} · {booking.departTime}
+            </dd>
+            <dt>Bus</dt>
+            <dd className="text-right font-medium">{booking.busName}</dd>
+            <dt>Seats</dt>
+            <dd className="text-right font-medium">
+              {booking.selectedSeats.join(", ")}
+            </dd>
+            <dt>Total</dt>
+            <dd className="text-right font-bold text-violet-600">
+              RWF {Number(totalAmount).toLocaleString()}
+            </dd>
+            <dt>Payment status</dt>
+            <dd className="text-right font-semibold text-amber-600">
+              Pending — demo payment is not connected
+            </dd>
+          </dl>
+          <p className="mt-5 text-sm text-neutral-500">
+            Your seats are reserved. No money was charged. Contact the bus
+            operator to complete payment.
+          </p>
+          <button
+            type="button"
+            onClick={() => {
+              resetBooking();
+              navigate("/");
+            }}
+            className="mt-6 w-full rounded-lg bg-violet-600 px-5 py-3 font-semibold text-white hover:bg-violet-700">
+            Back to home
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="w-full lg:px-28 md:px-16 sm:px-7 px-4 mt-[13ch] mb-[8ch]">
@@ -637,6 +404,11 @@ Bus Booking Team
               <h2 className="text-xl text-neutral-800 dark:text-neutral-100 font-medium mb-6">
                 {t("Select Payment Method")}
               </h2>
+              <p className="mb-6 rounded-lg border border-amber-300 bg-amber-50 p-4 text-sm text-amber-900 dark:border-amber-800 dark:bg-amber-950/30 dark:text-amber-200">
+                Demo only: MTN MoMo, Airtel Money, card, and bank payments are
+                not connected. No payment is requested or charged. Never enter
+                a PIN, card number, CVV, or bank credentials here.
+              </p>
 
               {/* Payment Methods */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8">
@@ -687,7 +459,7 @@ Bus Booking Team
                       </option>
                       {mobileProviders.map((provider) => (
                         <option key={provider.code} value={provider.name}>
-                          {provider.name} ({provider.prefix}XXXXXX)
+                            {provider.name}
                         </option>
                       ))}
                     </select>
@@ -701,97 +473,22 @@ Bus Booking Team
                       onChange={handlePaymentDetailsChange}
                       className="w-full p-3 border rounded-lg bg-white dark:bg-neutral-800"
                     />
-                    <small className="text-xs text-neutral-500 mt-1 block">
-                      You will receive a payment request on this number
-                    </small>
-                  </div>
-                  <div className="bg-blue-50 dark:bg-blue-950/20 p-3 rounded-lg">
-                    <p className="text-sm text-blue-600 dark:text-blue-400 flex items-center gap-2">
-                      <FaLock className="text-xs" />
-                      You will be prompted to enter your PIN on the next screen
-                    </p>
                   </div>
                 </div>
               )}
 
               {/* Card Payment Form */}
               {paymentMethod === "card" && (
-                <div className="bg-neutral-50 dark:bg-neutral-800/50 rounded-xl p-5 space-y-4">
-                  <h3 className="font-semibold flex items-center gap-2">
-                    <FaCreditCard className="text-blue-600" /> Card Details
-                  </h3>
-                  <div>
-                    <label className="block text-sm mb-2">Card Number</label>
-                    <input
-                      type="text"
-                      id="cardNumber"
-                      placeholder="1234 5678 9012 3456"
-                      onChange={handlePaymentDetailsChange}
-                      className="w-full p-3 border rounded-lg bg-white dark:bg-neutral-800"
-                    />
-                  </div>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <label className="block text-sm mb-2">Expiry Date</label>
-                      <input
-                        type="text"
-                        id="expiry"
-                        placeholder="MM/YY"
-                        onChange={handlePaymentDetailsChange}
-                        className="w-full p-3 border rounded-lg bg-white dark:bg-neutral-800"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm mb-2">CVV</label>
-                      <input
-                        type="password"
-                        id="cvv"
-                        placeholder="123"
-                        onChange={handlePaymentDetailsChange}
-                        className="w-full p-3 border rounded-lg bg-white dark:bg-neutral-800"
-                      />
-                    </div>
-                  </div>
+                <div className="rounded-xl bg-neutral-50 p-5 text-sm text-neutral-600 dark:bg-neutral-800/50 dark:text-neutral-300">
+                  Card processing is not connected. Do not enter card details.
                 </div>
               )}
 
               {/* Bank Transfer Form */}
               {paymentMethod === "bank" && (
-                <div className="bg-neutral-50 dark:bg-neutral-800/50 rounded-xl p-5 space-y-4">
-                  <h3 className="font-semibold flex items-center gap-2">
-                    <FaUniversity className="text-purple-600" /> Bank Transfer
-                    Details
-                  </h3>
-                  <div>
-                    <label className="block text-sm mb-2">Bank Name</label>
-                    <select
-                      id="bankName"
-                      onChange={handlePaymentDetailsChange}
-                      className="w-full p-3 border rounded-lg bg-white dark:bg-neutral-800">
-                      <option value="">Select your bank</option>
-                      <option>Bank of Kigali</option>
-                      <option>Equity Bank</option>
-                      <option>I&M Bank</option>
-                      <option>Access Bank</option>
-                    </select>
-                  </div>
-                  <div>
-                    <label className="block text-sm mb-2">Account Number</label>
-                    <input
-                      type="text"
-                      id="accountNumber"
-                      placeholder="Enter account number"
-                      onChange={handlePaymentDetailsChange}
-                      className="w-full p-3 border rounded-lg bg-white dark:bg-neutral-800"
-                    />
-                  </div>
-                  <div className="bg-yellow-50 dark:bg-yellow-950/20 p-3 rounded-lg">
-                    <p className="text-sm text-yellow-600 dark:text-yellow-400">
-                      Bank: 0001234567 | Account: 9876543210
-                      <br />
-                      Reference: BUS{Math.floor(Math.random() * 10000)}
-                    </p>
-                  </div>
+                <div className="rounded-xl bg-neutral-50 p-5 text-sm text-neutral-600 dark:bg-neutral-800/50 dark:text-neutral-300">
+                  Bank transfer is not connected. No bank details are collected
+                  or displayed.
                 </div>
               )}
 
@@ -800,12 +497,11 @@ Bus Booking Team
                 <div className="bg-neutral-50 dark:bg-neutral-800/50 rounded-xl p-5 text-center">
                   <FaMoneyBill className="text-4xl text-green-600 mx-auto mb-2" />
                   <p className="text-sm font-semibold">
-                    You will pay RWF {Number(totalAmount).toLocaleString()} in cash
+                    Outstanding amount: RWF {Number(totalAmount).toLocaleString()}
                   </p>
                   <p className="text-xs text-neutral-500 mt-2">
-                    Please arrive 30 minutes before departure at the bus station
-                    <br />
-                    Present your ID and booking reference to complete payment
+                    This demo records your booking as pending; payment is not
+                    processed.
                   </p>
                 </div>
               )}
@@ -814,8 +510,7 @@ Bus Booking Team
               <div className="flex items-center gap-2 mt-6 p-3 bg-gray-50 dark:bg-gray-800/30 rounded-lg">
                 <FaShieldAlt className="text-green-600" />
                 <p className="text-xs text-neutral-500">
-                  Your payment is secure and encrypted. We never store your
-                  payment details.
+                  This demo does not collect card, PIN, or bank credentials.
                 </p>
               </div>
             </div>
@@ -846,7 +541,7 @@ Bus Booking Team
                   </>
                 ) : (
                   <>
-                    Pay Now <FaArrowRight />
+                    Reserve Seats <FaArrowRight />
                   </>
                 )}
               </button>
@@ -927,77 +622,14 @@ Bus Booking Team
         </div>
       </div>
 
-      {/* PIN Verification Modal */}
-      {showPinModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <div className="bg-white dark:bg-neutral-900 rounded-xl p-6 max-w-md w-full mx-4">
-            <div className="text-center mb-4">
-              <div className="w-16 h-16 bg-violet-100 rounded-full flex items-center justify-center mx-auto mb-3">
-                <FaKey className="text-2xl text-violet-600" />
-              </div>
-              <h3 className="text-xl font-bold text-neutral-800 dark:text-neutral-100">
-                Enter Your PIN
-              </h3>
-              <p className="text-sm text-neutral-500 mt-1">
-                Enter your {paymentDetails.provider || "Mobile Money"} PIN to
-                complete payment
-              </p>
-            </div>
-
-            <div className="mb-4">
-              <label className="block text-sm font-medium mb-2">
-                4-Digit PIN
-              </label>
-              <input
-                type="password"
-                maxLength="4"
-                value={pin}
-                onChange={(e) => setPin(e.target.value)}
-                className="w-full text-center text-2xl tracking-widest p-3 border rounded-lg bg-white dark:bg-neutral-800"
-                placeholder="••••"
-                autoFocus
-              />
-              {pinError && (
-                <p className="text-red-500 text-xs mt-1">{pinError}</p>
-              )}
-            </div>
-
-            <div className="bg-yellow-50 dark:bg-yellow-950/20 p-3 rounded-lg mb-4">
-              <p className="text-xs text-yellow-600 dark:text-yellow-400 text-center">
-                Amount to pay: <strong>RWF {Number(totalAmount).toLocaleString()}</strong>
-                <br />
-                You will receive confirmation via SMS and Email
-              </p>
-            </div>
-
-            <div className="flex gap-3">
-              <button
-                onClick={() => {
-                  setShowPinModal(false);
-                  setPin("");
-                  setPinError("");
-                }}
-                className="flex-1 px-4 py-2 border rounded-lg hover:bg-gray-50">
-                Cancel
-              </button>
-              <button
-                onClick={verifyPinAndPay}
-                className="flex-1 px-4 py-2 bg-violet-600 text-white rounded-lg hover:bg-violet-700">
-                Pay Now
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
       {/* Processing Overlay */}
-      {processing && !showPinModal && (
+      {processing && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
           <div className="bg-white dark:bg-neutral-900 rounded-xl p-8 max-w-sm w-full mx-4 text-center">
             <FaSpinner className="text-4xl text-violet-600 animate-spin mx-auto mb-4" />
-            <h3 className="text-xl font-bold mb-2">Processing Payment</h3>
+            <h3 className="text-xl font-bold mb-2">Saving Booking</h3>
             <p className="text-neutral-500 text-sm">
-              Please wait while we process your payment...
+              Please wait while your booking and seat reservations are saved.
             </p>
             <p className="text-xs text-neutral-400 mt-3">
               Do not close this window

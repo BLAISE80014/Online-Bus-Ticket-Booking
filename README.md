@@ -41,6 +41,7 @@ When the API connects, it creates these collections in the
 
 - `users` — passenger and admin accounts; passwords are stored as hashes.
 - `buses`, `routes`, `bookings`, and `payments`.
+- `seatReservations` — reserved seats by bus, route, date, and departure time.
 - `notifications`, `loginHistory`, `staff`, and `systemUsers`.
 - `companySettings`, `paymentSettings`, `notificationSettings`, and
   `systemPreferences`.
@@ -49,6 +50,11 @@ The API also creates the email and record-ID indexes it needs. In MongoDB
 Compass, connect with the same MongoDB URI, refresh the database list, and
 expand `online-ticket-booking` to see the collections. The collections may be
 empty until the system receives data.
+
+The API seeds the eight listed Kigali routes with no assumed fares. Set each
+route's fare in the admin dashboard before passengers can book it. Passengers
+see only the administrator-configured price in RWF; seat availability is
+checked and reserved in MongoDB for each bus, route, date, and departure.
 
 1. Copy `server/.env.example` to `server/.env`.
 2. Set `MONGODB_URI` to your MongoDB connection string and keep
@@ -77,8 +83,10 @@ settings are copied to MongoDB the first time an admin opens the dashboard with
 an empty database. Existing browser-only passenger accounts must register again
 because their passwords were stored locally and are not migrated.
 
-The current checkout payment screens are demonstrations; connecting MongoDB
-does not process real card or mobile-money payments.
+Payment choices in checkout are demonstrations only. No payment provider is
+connected, no money is charged, and passengers should never enter a payment
+PIN, card details, or bank credentials. Bookings are saved with payment
+pending until a real payment integration is configured.
 
 If you want to see live project on your mobile or other local machine with same wifi connection.
 

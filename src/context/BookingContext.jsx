@@ -6,13 +6,12 @@ const initialState = {
   from: "",
   to: "",
   travelDate: "",
-  travelTime: "",
   departTime: "",
   selectedSeats: [],
   busType: "",
   busId: "",
   busName: "",
-  busPrice: 750,
+  busPrice: 0,
   busDetails: null,
   passengerInfo: {
     fullname: "",
@@ -25,15 +24,32 @@ const initialState = {
 function bookingReducer(state, action) {
   switch (action.type) {
     case "SET_FROM":
-      return { ...state, from: action.payload };
+      return {
+        ...state,
+        from: action.payload,
+        to: "",
+        departTime: "",
+        selectedSeats: [],
+        busId: "",
+        busName: "",
+        busPrice: 0,
+        busDetails: null,
+      };
     case "SET_TO":
-      return { ...state, to: action.payload };
+      return {
+        ...state,
+        to: action.payload,
+        departTime: "",
+        selectedSeats: [],
+        busId: "",
+        busName: "",
+        busPrice: 0,
+        busDetails: null,
+      };
     case "SET_TRAVEL_DATE":
-      return { ...state, travelDate: action.payload };
-    case "SET_TRAVEL_TIME":
-      return { ...state, travelTime: action.payload };
+      return { ...state, travelDate: action.payload, selectedSeats: [] };
     case "SET_DEPART_TIME":
-      return { ...state, departTime: action.payload };
+      return { ...state, departTime: action.payload, selectedSeats: [] };
     case "SET_SELECTED_SEATS":
       return { ...state, selectedSeats: action.payload };
     case "TOGGLE_SEAT": {
@@ -60,6 +76,10 @@ function bookingReducer(state, action) {
         busName: payload.busName ?? state.busName ?? "",
         busPrice: Number(payload.price ?? state.busPrice ?? 750),
         busDetails: payload.busDetails ?? state.busDetails ?? null,
+        selectedSeats:
+          String(payload.busId ?? state.busId) === String(state.busId)
+            ? state.selectedSeats
+            : [],
       };
     }
     case "SET_PASSENGER_INFO":
@@ -84,8 +104,6 @@ export function BookingProvider({ children }) {
       setTo: (to) => dispatch({ type: "SET_TO", payload: to }),
       setTravelDate: (travelDate) =>
         dispatch({ type: "SET_TRAVEL_DATE", payload: travelDate }),
-      setTravelTime: (travelTime) =>
-        dispatch({ type: "SET_TRAVEL_TIME", payload: travelTime }),
       setDepartTime: (departTime) =>
         dispatch({ type: "SET_DEPART_TIME", payload: departTime }),
       toggleSeat: (seatNumber) =>

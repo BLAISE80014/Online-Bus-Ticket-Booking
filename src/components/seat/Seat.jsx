@@ -1,11 +1,12 @@
-import React from "react";
+import React, { useEffect, useState } from "react";
 import { GiSteeringWheel } from "react-icons/gi";
 import { MdOutlineChair } from "react-icons/md";
 import { FaMoneyBillWave } from "react-icons/fa";
 import { useBooking } from "../../context/BookingContext";
 import { useLanguage } from "../../context/LanguageContext";
+import { publicRequest } from "../../utils/api";
 
-const SeatItem = ({ seatNumber, isSelected, isBooked, onClick }) => {
+const SeatItem = ({ seatNumber, isSelected, isBooked, disabled, onClick }) => {
   const getSeatColor = () => {
     if (isBooked) return "text-red-500";
     if (isSelected) return "text-violet-600";
@@ -13,45 +14,83 @@ const SeatItem = ({ seatNumber, isSelected, isBooked, onClick }) => {
   };
 
   return (
-    <MdOutlineChair
-      className={`text-3xl -rotate-90 cursor-pointer ${getSeatColor()} ${
-        isBooked ? "cursor-not-allowed opacity-50" : "hover:text-violet-400"
-      }`}
-      onClick={!isBooked ? onClick : undefined}
-    />
+    <button
+      type="button"
+      aria-label={`Seat ${seatNumber}${isBooked ? ", booked" : ""}`}
+      disabled={disabled || isBooked}
+      title={`Seat ${seatNumber}`}
+      className={`p-0 text-3xl ${
+        disabled || isBooked
+          ? "cursor-not-allowed opacity-50"
+          : "cursor-pointer hover:text-violet-400"
+      } ${getSeatColor()}`}
+      onClick={onClick}>
+      <MdOutlineChair className="-rotate-90" />
+    </button>
   );
 };
-
-const totalSeats = 41;
-// Simulating booked seats (in real app, these would come from API)
-const bookedSeats = [5, 12, 18, 25, 33, 40];
 
 const Seat = () => {
   const { booking, toggleSeat } = useBooking();
   const { t } = useLanguage();
   const selectedSeats = booking.selectedSeats;
+  const totalSeats = Number(booking.busDetails?.passengers) || 0;
+  const [bookedSeats, setBookedSeats] = useState([]);
+  const [availabilityState, setAvailabilityState] = useState("incomplete");
+  const [availabilityError, setAvailabilityError] = useState("");
+
+  useEffect(() => {
+    if (
+      !booking.busId ||
+      !booking.from ||
+      !booking.to ||
+      !booking.travelDate ||
+      !booking.departTime
+    ) {
+      setAvailabilityState("incomplete");
+      setBookedSeats([]);
+      return;
+    }
+
+    let active = true;
+    setAvailabilityState("loading");
+    setAvailabilityError("");
+    const query = new URLSearchParams({
+      busId: String(booking.busId),
+      from: booking.from,
+      to: booking.to,
+      travelDate: booking.travelDate,
+      departTime: booking.departTime,
+    });
+    publicRequest(`/availability?${query}`)
+      .then(({ seats }) => {
+        if (!active) return;
+        const reserved = seats.map(Number);
+        setBookedSeats(reserved);
+        setAvailabilityState("ready");
+      })
+      .catch((error) => {
+        if (!active) return;
+        setAvailabilityError(error.message);
+        setAvailabilityState("error");
+      });
+    return () => {
+      active = false;
+    };
+  }, [
+    booking.busId,
+    booking.from,
+    booking.to,
+    booking.travelDate,
+    booking.departTime,
+  ]);
 
   const handleSeatClick = (seatNumber) => {
     toggleSeat(seatNumber);
   };
 
-  const renderSeats = () => {
-    let seats = [];
-    for (let i = 1; i <= totalSeats; i++) {
-      seats.push(
-        <SeatItem
-          key={i}
-          seatNumber={i}
-          isSelected={selectedSeats.includes(i)}
-          isBooked={bookedSeats.includes(i)}
-          onClick={() => handleSeatClick(i)}
-        />
-      );
-    }
-    return seats;
-  };
-
-  const seatPrice = booking.busPrice || 750;
+  const seatPrice = Number(booking.busPrice) || 0;
+  const canChooseSeat = availabilityState === "ready" && seatPrice > 0;
 
   return (
     <div className="space-y-5">
@@ -65,29 +104,43 @@ const Seat = () => {
           <GiSteeringWheel className="text-3xl mt-6 text-violet-600 -rotate-90" />
         </div>
 
-        <div className="flex flex-col items-center space-y-4">
-          <div className="grid grid-cols-10 gap-x-3">
-            {renderSeats().slice(0, 10)}
-          </div>
-
-          <div className="grid grid-cols-10 gap-x-3">
-            {renderSeats().slice(10, 20)}
-          </div>
-
-          <div className="grid grid-cols-10 gap-x-3">
-            <div className="col-span-9"></div>
-            {renderSeats().slice(20, 21)}
-          </div>
-
-          <div className="grid grid-cols-10 gap-x-3">
-            {renderSeats().slice(21, 31)}
-          </div>
-
-          <div className="grid grid-cols-10 gap-x-3">
-            {renderSeats().slice(31, 41)}
-          </div>
+        <div className="grid grid-cols-4 gap-3">
+          {Array.from({ length: totalSeats }, (_, index) => {
+            const seatNumber = index + 1;
+            return (
+              <SeatItem
+                key={seatNumber}
+                seatNumber={seatNumber}
+                isSelected={selectedSeats.includes(seatNumber)}
+                isBooked={bookedSeats.includes(seatNumber)}
+                disabled={!canChooseSeat}
+                onClick={() => handleSeatClick(seatNumber)}
+              />
+            );
+          })}
         </div>
       </div>
+
+      {availabilityState === "incomplete" && (
+        <p className="text-sm text-neutral-500">
+          Choose a route, travel date, and departure time to see available seats.
+        </p>
+      )}
+      {availabilityState === "loading" && (
+        <p role="status" className="text-sm text-neutral-500">
+          Checking live seat availability...
+        </p>
+      )}
+      {availabilityState === "error" && (
+        <p role="alert" className="text-sm text-red-600">
+          Could not check seat availability: {availabilityError}
+        </p>
+      )}
+      {availabilityState === "ready" && (
+        <p className="text-sm text-green-700">
+          {Math.max(0, totalSeats - bookedSeats.length)} seats available
+        </p>
+      )}
 
       {/* Legend */}
       <div className="space-y-3 w-28">

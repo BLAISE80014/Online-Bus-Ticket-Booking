@@ -1,9 +1,17 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { useBooking } from "../../context/BookingContext";
 
 function Department() {
   const { booking, setDepartTime } = useBooking();
   const [departBus, setDepartBus] = useState(booking.departTime || "");
+  const departures = booking.busDetails?.routeInfo?.departures || [];
+
+  useEffect(() => {
+    if (departBus && !departures.includes(departBus)) {
+      setDepartBus("");
+      setDepartTime("");
+    }
+  }, [departures, departBus, setDepartTime]);
 
   const handleDepartBusChange = (e) => {
     const value = e.target.value;
@@ -27,26 +35,11 @@ function Department() {
           onChange={handleDepartBusChange}
           className="w-full appearance-none text-neutral-800 dark:text-neutral-100 bg-neutral-200/60 dark:bg-neutral-900/60 px-3 h-11 border border-neutral-200 dark:border-neutral-900 rounded-md focus:outline-none focus:bg-neutral-100 dark:focus:bg-neutral-900">
           <option value="">Select a Time</option>
-          <option value="04:00 AM">04:00 AM</option>
-          <option value="06:00 AM">06:00 AM</option>
-          <option value="08:00 AM">08:00 AM</option>
-          <option value="10:00 AM">10:00 AM</option>
-          <option value="12:00 PM">12:00 PM</option>
-          <option value="02:00 PM">02:00 PM</option>
-          <option value="04:00 PM">04:00 PM</option>
-          <option value="06:00 PM">06:00 PM</option>
-          <option value="08:00 PM">08:00 PM</option>
-          <option value="10:00 PM">10:00 PM</option>
-          <option value="12:00 AM">12:00 AM</option>
-          <option value="07:00 AM">02:00 AM</option>
-          <option value="09:00 AM">09:00 AM</option>
-          <option value="11:00 AM">11:00 AM</option>
-          <option value="01:00 PM">01:00 PM</option>
-          <option value="03:00 PM">03:00 PM</option>
-          <option value="05:00 PM">05:00 PM</option>
-          <option value="07:00 PM">07:00 PM</option>
-          <option value="09:00 PM">09:00 PM</option>
-          <option value="11:00 PM">11:00 PM</option>
+          {departures.map((departure) => (
+            <option key={departure} value={departure}>
+              {departure}
+            </option>
+          ))}
         </select>
       </div>
 
