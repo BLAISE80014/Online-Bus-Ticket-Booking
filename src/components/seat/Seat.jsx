@@ -1,8 +1,9 @@
 import React from "react";
 import { GiSteeringWheel } from "react-icons/gi";
 import { MdOutlineChair } from "react-icons/md";
-import { RiMoneyRupeeCircleLine } from "react-icons/ri";
+import { FaMoneyBillWave } from "react-icons/fa";
 import { useBooking } from "../../context/BookingContext";
+import { useLanguage } from "../../context/LanguageContext";
 
 const SeatItem = ({ seatNumber, isSelected, isBooked, onClick }) => {
   const getSeatColor = () => {
@@ -27,6 +28,7 @@ const bookedSeats = [5, 12, 18, 25, 33, 40];
 
 const Seat = () => {
   const { booking, toggleSeat } = useBooking();
+  const { t } = useLanguage();
   const selectedSeats = booking.selectedSeats;
 
   const handleSeatClick = (seatNumber) => {
@@ -49,12 +51,12 @@ const Seat = () => {
     return seats;
   };
 
-  const seatPrice = 750;
+  const seatPrice = booking.busPrice || 750;
 
   return (
     <div className="space-y-5">
       <h2 className="text-xl text-neutral-800 dark:text-neutral-100 font-medium">
-        Choose a Seat
+        {t("Choose a Seat")}
       </h2>
 
       {/* Bus */}
@@ -91,29 +93,29 @@ const Seat = () => {
       <div className="space-y-3 w-28">
         <div className="flex items-center gap-x-2">
           <MdOutlineChair className="text-lg text-neutral-600 -rotate-90" />
-          <p className="text-sm">Available</p>
+          <p className="text-sm">{t("Available")}</p>
         </div>
 
         <div className="flex items-center gap-x-2">
           <MdOutlineChair className="text-lg text-red-500 -rotate-90" />
-          <p className="text-sm">Booked</p>
+          <p className="text-sm">{t("Booked")}</p>
         </div>
 
         <div className="flex items-center gap-x-2">
           <MdOutlineChair className="text-lg text-violet-600 -rotate-90" />
-          <p className="text-sm">Selected</p>
+          <p className="text-sm">{t("Selected")}</p>
         </div>
 
         <div className="flex items-center gap-x-2">
-          <RiMoneyRupeeCircleLine className="text-lg text-neutral-600" />
-          <p className="text-sm">Rs. {seatPrice}</p>
+          <FaMoneyBillWave className="text-lg text-neutral-600" />
+          <p className="text-sm">RWF {seatPrice.toLocaleString()}</p>
         </div>
       </div>
 
       {/* Selected seats */}
       {selectedSeats.length > 0 && (
         <div className="mt-10">
-          <h3 className="text-lg font-bold">Selected Seats:</h3>
+          <h3 className="text-lg font-bold">{t("Selected Seats:")}</h3>
           <div className="flex flex-wrap">
             {selectedSeats.map((seat) => (
               <div
@@ -129,9 +131,9 @@ const Seat = () => {
       {/* Total price */}
       {selectedSeats.length > 0 && (
         <div className="mt-5 flex items-center gap-x-4">
-          <h3 className="text-lg font-bold">Total Price:</h3>
+          <h3 className="text-lg font-bold">{t("Total Price:")}</h3>
           <p className="text-lg font-medium">
-            Rs. {selectedSeats.length * seatPrice}
+            RWF {(selectedSeats.length * seatPrice).toLocaleString()}
           </p>
           <span className="text-sm text-neutral-400">(Including taxes)</span>
         </div>

@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useEffect } from "react";
 import {
   FaStar,
   FaWifi,
@@ -21,16 +21,36 @@ import Destination from "../../components/destination/Destination";
 import Department from "../../components/department/Department";
 import Seat from "../../components/seat/Seat";
 import TravelDateTime from "../../components/travel/TravelDateTime";
+import { useBooking } from "../../context/BookingContext";
 
 function Detail() {
   const location = useLocation();
+  const { setBus, booking } = useBooking();
 
   const busData = location?.state || {
+    id: 1,
     name: "Luxury Express",
     plate: "RAB 123A",
     rating: 4.8,
-    price: 5000,
+    price: booking.busPrice || 750,
+    type: "luxury",
+    company: "SmartBus Travels",
+    image: Bus1,
   };
+
+  const tripPrice = Number(busData.price ?? booking.busPrice ?? 750);
+
+  useEffect(() => {
+    if (location.state) {
+      setBus(
+        busData.type || "luxury",
+        busData.id || "selected-bus",
+        tripPrice,
+        busData.name || "Luxury Express",
+        busData,
+      );
+    }
+  }, []);
 
   const features = [
     {
@@ -157,7 +177,7 @@ function Detail() {
           <div className="bg-violet-600 text-white rounded-3xl shadow-lg p-6">
             <p className="uppercase tracking-wider text-sm">Ticket Price</p>
 
-            <h2 className="text-4xl font-bold mt-2">RWF {busData.price}</h2>
+            <h2 className="text-4xl font-bold mt-2">RWF {tripPrice}</h2>
           </div>
 
           {/* JOURNEY INFO */}
@@ -314,7 +334,7 @@ function Detail() {
             <div className="flex justify-between text-2xl font-bold">
               <span className="dark:text-white">Total</span>
 
-              <span className="text-violet-600">RWF {busData.price}</span>
+              <span className="text-violet-600">RWF {tripPrice}</span>
             </div>
 
             {/* CHECKOUT BUTTON */}

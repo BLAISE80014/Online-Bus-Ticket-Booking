@@ -16,10 +16,17 @@ import {
 } from "react-icons/fa";
 import { useBooking } from "../../context/BookingContext";
 import { useNavigate } from "react-router-dom";
+import { useLanguage } from "../../context/LanguageContext";
+import {
+  addSystemNotification,
+  readStoredArray,
+  writeStoredArray,
+} from "../../utils/storage";
 
 function Checkout() {
   const { booking, setPassengerInfo, resetBooking } = useBooking();
   const navigate = useNavigate();
+  const { t } = useLanguage();
 
   const [step, setStep] = useState(1);
   const [paymentMethod, setPaymentMethod] = useState("");
@@ -33,11 +40,146 @@ function Checkout() {
   const [transactionId, setTransactionId] = useState("");
 
   const [formData, setFormData] = useState({
-    fullname: booking.passengerInfo?.fullname || "",
-    email: booking.passengerInfo?.email || "",
-    phone: booking.passengerInfo?.phone || "",
+    fullname:
+      booking.passengerInfo?.fullname ||
+      JSON.parse(localStorage.getItem("currentUser") || "null")?.name ||
+      "",
+    email:
+      booking.passengerInfo?.email ||
+      JSON.parse(localStorage.getItem("currentUser") || "null")?.email ||
+      "",
+    phone:
+      booking.passengerInfo?.phone ||
+      JSON.parse(localStorage.getItem("currentUser") || "null")?.phone ||
+      "",
     altPhone: booking.passengerInfo?.altPhone || "",
   });
+
+  const recordBooking = (transactionRef, amount, status, paymentState) => {
+    const storedUser = JSON.parse(localStorage.getItem("currentUser") || "null");
+    const registeredUser = readStoredArray("users").find(
+      (user) => user.email?.toLowerCase() === formData.email.trim().toLowerCase(),
+    );
+    const bookingId = `BK${Date.now()}`;
+    const dateTime = [booking.travelDate, booking.departTime || booking.travelTime]
+      .filter(Boolean)
+      .join(" ");
+    const bookingRecord = {
+      id: bookingId,
+      passenger: formData.fullname.trim(),
+      email: formData.email.trim().toLowerCase(),
+      phone: formData.phone.trim(),
+      userId: registeredUser?.id || storedUser?.id || null,
+      routeId: `${booking.from} - ${booking.to}`,
+      from: booking.from,
+      to: booking.to,
+      dateTime: dateTime || "Date not selected",
+      busName: booking.busName || "Bus",
+      busId: booking.busId,
+      company: booking.busDetails?.company || "",
+      busPlate: booking.busDetails?.plate || "",
+      seats: [...booking.selectedSeats],
+      amount,
+      currency: "RWF",
+      status,
+      paymentId: transactionRef,
+      createdAt: new Date().toISOString(),
+    };
+    const bookings = readStoredArray("bookings");
+    bookings.unshift(bookingRecord);
+    writeStoredArray("bookings", bookings);
+
+    const payments = readStoredArray("payments");
+    payments.unshift({
+      id: transactionRef,
+      bookingId,
+      amount,
+      status: paymentState,
+      method: paymentMethod,
+      date: new Date().toISOString().split("T")[0],
+      passenger: bookingRecord.passenger,
+      email: bookingRecord.email,
+      currency: "RWF",
+    });
+    writeStoredArray("payments", payments);
+
+    const savedBuses = readStoredArray("buses");
+    const selectedBus = booking.busDetails;
+    if (selectedBus?.name) {
+      const currentBus = savedBuses.find(
+        (bus) =>
+          bus.catalogId === selectedBus.id ||
+          (selectedBus.plate && bus.plate === selectedBus.plate),
+      );
+      if (currentBus) {
+        Object.assign(currentBus, {
+          name: selectedBus.name,
+          plate: selectedBus.plate || currentBus.plate || "",
+          capacity: selectedBus.passengers || currentBus.capacity || "",
+          type: selectedBus.type || currentBus.type || "",
+          company: selectedBus.company || currentBus.company || "",
+          catalogId: selectedBus.id,
+          status: currentBus.status || "Active",
+        });
+      } else {
+        const numericIds = savedBuses
+          .map((bus) => Number(bus.id))
+          .filter(Number.isFinite);
+        savedBuses.push({
+          id: Math.max(1000, ...numericIds) + 1,
+          catalogId: selectedBus.id,
+          name: selectedBus.name,
+          plate: selectedBus.plate || "",
+          capacity: selectedBus.passengers || "",
+          type: selectedBus.type || "",
+          company: selectedBus.company || "",
+          status: "Active",
+        });
+      }
+      writeStoredArray("buses", savedBuses);
+    }
+
+    if (booking.from && booking.to) {
+      const savedRoutes = readStoredArray("routes");
+      const existingRoute = savedRoutes.find(
+        (route) =>
+          route.from?.toLowerCase() === booking.from.toLowerCase() &&
+          route.to?.toLowerCase() === booking.to.toLowerCase() &&
+          (route.busId === booking.busId || !route.busId),
+      );
+      if (existingRoute) {
+        Object.assign(existingRoute, {
+          busId: booking.busId,
+          busName: booking.busName || existingRoute.busName || "",
+          company: booking.busDetails?.company || existingRoute.company || "",
+          price: amount / Math.max(booking.selectedSeats.length, 1),
+          currency: "RWF",
+        });
+      } else {
+        const numericIds = savedRoutes
+          .map((route) => Number(route.id))
+          .filter(Number.isFinite);
+        savedRoutes.push({
+          id: Math.max(0, ...numericIds) + 1,
+          from: booking.from,
+          to: booking.to,
+          distance: "",
+          duration: "",
+          busId: booking.busId,
+          busName: booking.busName || "",
+          company: booking.busDetails?.company || "",
+          price: amount / Math.max(booking.selectedSeats.length, 1),
+          currency: "RWF",
+        });
+      }
+      writeStoredArray("routes", savedRoutes);
+    }
+
+    addSystemNotification(
+      `${bookingRecord.passenger} booked ${bookingRecord.busName} (${bookingRecord.routeId}), seat(s) ${bookingRecord.seats.join(", ")}. Total: RWF ${Number(amount).toLocaleString()}.`,
+      "booking",
+    );
+  };
 
   const handleChange = (e) => {
     const { id, value } = e.target;
@@ -108,7 +250,8 @@ function Checkout() {
     setShowPinModal(false);
     setPaymentStatus("processing");
 
-    const totalAmount = booking.selectedSeats.length * 750;
+    const totalAmount =
+      booking.selectedSeats.length * (booking.busPrice || 750);
     const transactionRef = "TXN" + Math.floor(Math.random() * 1000000000);
 
     // Simulate payment processing
@@ -117,13 +260,14 @@ function Checkout() {
       setPaymentComplete(true);
       setTransactionId(transactionRef);
       setPaymentStatus("success");
+      recordBooking(transactionRef, totalAmount, "Confirmed", "Completed");
 
       // Send SMS confirmation
-      const smsMessage = `✅ BUS BOOKING CONFIRMED!\n\nReference: ${transactionRef}\nRoute: ${booking.from} → ${booking.to}\nSeats: ${booking.selectedSeats.join(", ")}\nAmount: Rs. ${totalAmount}\nPayment: Mobile Money\n\nThank you for choosing us!`;
+      const smsMessage = `✅ BUS BOOKING CONFIRMED!\n\nReference: ${transactionRef}\nRoute: ${booking.from} → ${booking.to}\nSeats: ${booking.selectedSeats.join(", ")}\n      Amount: RWF ${Number(totalAmount).toLocaleString()}\nPayment: Mobile Money\n\nThank you for choosing us!`;
       sendSMS(paymentDetails.mobileNumber, smsMessage);
 
       // Send WhatsApp message (simulated)
-      const whatsappMessage = `*Bus Booking Confirmation* 🚌\n\nReference: ${transactionRef}\nPassenger: ${formData.fullname}\nRoute: ${booking.from} → ${booking.to}\nDate: ${booking.travelDate}\nTime: ${booking.departTime}\nSeats: ${booking.selectedSeats.join(", ")}\nAmount: Rs. ${totalAmount}\n\nThank you for booking with us!`;
+      const whatsappMessage = `*Bus Booking Confirmation* 🚌\n\nReference: ${transactionRef}\nPassenger: ${formData.fullname}\nRoute: ${booking.from} → ${booking.to}\nDate: ${booking.travelDate}\nTime: ${booking.departTime}\nSeats: ${booking.selectedSeats.join(", ")}\n      Amount: RWF ${Number(totalAmount).toLocaleString()}\n\nThank you for booking with us!`;
       alert(
         `💬 WhatsApp message sent to ${paymentDetails.mobileNumber}\n\n${whatsappMessage}`,
       );
@@ -143,7 +287,7 @@ Date: ${booking.travelDate}
 Departure Time: ${booking.departTime}
 Selected Seats: ${booking.selectedSeats.join(", ")}
 Number of Seats: ${booking.selectedSeats.length}
-Total Amount: Rs. ${totalAmount}
+Total Amount: RWF ${Number(totalAmount).toLocaleString()}
 Payment Method: Mobile Money (${paymentDetails.provider})
 Payment Status: ✅ COMPLETED
 
@@ -169,7 +313,7 @@ Bus Booking Team
       // Show success message
       setTimeout(() => {
         alert(
-          `✅ PAYMENT SUCCESSFUL!\n\nTransaction ID: ${transactionRef}\nAmount: Rs. ${totalAmount}\n\n📱 SMS sent to ${paymentDetails.mobileNumber}\n📧 Email sent to ${formData.email}\n💬 WhatsApp message sent\n\nThank you for booking with us!`,
+          `✅ PAYMENT SUCCESSFUL!\n\nTransaction ID: ${transactionRef}\n          Amount: RWF ${Number(totalAmount).toLocaleString()}\n\n📱 SMS sent to ${paymentDetails.mobileNumber}\n📧 Email sent to ${formData.email}\n💬 WhatsApp message sent\n\nThank you for booking with us!`,
         );
         resetBooking();
         navigate("/");
@@ -191,7 +335,8 @@ Bus Booking Team
     setProcessing(true);
     setPaymentStatus("processing");
 
-    const totalAmount = booking.selectedSeats.length * 750;
+    const totalAmount =
+      booking.selectedSeats.length * (booking.busPrice || 750);
     const transactionRef = "TXN" + Math.floor(Math.random() * 1000000000);
 
     setTimeout(() => {
@@ -199,11 +344,12 @@ Bus Booking Team
       setPaymentComplete(true);
       setTransactionId(transactionRef);
       setPaymentStatus("success");
+      recordBooking(transactionRef, totalAmount, "Confirmed", "Completed");
 
       // Send SMS
       sendSMS(
         formData.phone,
-        `✅ Booking confirmed! Ref: ${transactionRef} Amount: Rs. ${totalAmount}`,
+        `✅ Booking confirmed! Ref: ${transactionRef} Amount: RWF ${Number(totalAmount).toLocaleString()}`,
       );
 
       // Send Email
@@ -214,7 +360,7 @@ Bus Booking Team
       );
 
       alert(
-        `✅ Card Payment Successful!\n\nTransaction ID: ${transactionRef}\nAmount: Rs. ${totalAmount}\n\nConfirmation sent to ${formData.email} and ${formData.phone}`,
+        `✅ Card Payment Successful!\n\nTransaction ID: ${transactionRef}\nAmount: RWF ${Number(totalAmount).toLocaleString()}\n\nConfirmation sent to ${formData.email} and ${formData.phone}`,
       );
       resetBooking();
       navigate("/");
@@ -231,7 +377,8 @@ Bus Booking Team
     setProcessing(true);
     setPaymentStatus("processing");
 
-    const totalAmount = booking.selectedSeats.length * 750;
+    const totalAmount =
+      booking.selectedSeats.length * (booking.busPrice || 750);
     const transactionRef = "TXN" + Math.floor(Math.random() * 1000000000);
 
     setTimeout(() => {
@@ -239,6 +386,7 @@ Bus Booking Team
       setPaymentComplete(true);
       setTransactionId(transactionRef);
       setPaymentStatus("success");
+      recordBooking(transactionRef, totalAmount, "Pending", "Pending");
 
       sendEmail(
         formData.email,
@@ -258,26 +406,28 @@ Bus Booking Team
   const processCashPayment = () => {
     setProcessing(true);
 
-    const totalAmount = booking.selectedSeats.length * 750;
+    const totalAmount =
+      booking.selectedSeats.length * (booking.busPrice || 750);
     const transactionRef = "TXN" + Math.floor(Math.random() * 1000000000);
 
     setTimeout(() => {
       setProcessing(false);
       setPaymentComplete(true);
       setTransactionId(transactionRef);
+      recordBooking(transactionRef, totalAmount, "Pending", "Pending");
 
       sendSMS(
         formData.phone,
-        `Booking reserved! Ref: ${transactionRef}. Pay Rs. ${totalAmount} cash at departure.`,
+        `Booking reserved! Ref: ${transactionRef}. Pay RWF ${Number(totalAmount).toLocaleString()} cash at departure.`,
       );
       sendEmail(
         formData.email,
         "Booking Reserved - Cash Payment",
-        `Your booking ${transactionRef} is reserved. Please pay Rs. ${totalAmount} in cash at the bus station.`,
+        `Your booking ${transactionRef} is reserved. Please pay RWF ${Number(totalAmount).toLocaleString()} in cash at the bus station.`,
       );
 
       alert(
-        `✅ Booking Reserved!\n\nReference: ${transactionRef}\nAmount to pay: Rs. ${totalAmount}\n\nPlease pay cash at the bus station before departure.\n\nConfirmation sent to ${formData.email}`,
+        `✅ Booking Reserved!\n\nReference: ${transactionRef}\nAmount to pay: RWF ${Number(totalAmount).toLocaleString()}\n\nPlease pay cash at the bus station before departure.\n\nConfirmation sent to ${formData.email}`,
       );
       resetBooking();
       navigate("/");
@@ -317,7 +467,7 @@ Bus Booking Team
     }
   };
 
-  const seatPrice = 750;
+  const seatPrice = booking.busPrice || 750;
   const totalAmount = booking.selectedSeats.length * seatPrice;
 
   const paymentMethods = [
@@ -368,7 +518,7 @@ Bus Booking Team
               className={`w-8 h-8 rounded-full flex items-center justify-center ${step >= 1 ? "bg-violet-600 text-white" : "bg-gray-200 text-gray-500"}`}>
               1
             </div>
-            <span>Passenger Info</span>
+            <span>{t("Passenger Info")}</span>
           </div>
           <div className="w-16 h-[2px] bg-gray-200"></div>
           <div
@@ -377,7 +527,7 @@ Bus Booking Team
               className={`w-8 h-8 rounded-full flex items-center justify-center ${step >= 2 ? "bg-violet-600 text-white" : "bg-gray-200 text-gray-500"}`}>
               2
             </div>
-            <span>Payment</span>
+            <span>{t("Payment")}</span>
           </div>
         </div>
       </div>
@@ -388,7 +538,7 @@ Bus Booking Team
           {step === 1 && (
             <div className="bg-white dark:bg-neutral-900 rounded-xl p-6 shadow-sm">
               <h2 className="text-xl text-neutral-800 dark:text-neutral-100 font-medium mb-6">
-                Passenger Information
+                {t("Passenger Information")}
               </h2>
               <div className="space-y-5">
                 <div>
@@ -466,7 +616,7 @@ Bus Booking Team
           {step === 2 && (
             <div className="bg-white dark:bg-neutral-900 rounded-xl p-6 shadow-sm">
               <h2 className="text-xl text-neutral-800 dark:text-neutral-100 font-medium mb-6">
-                Select Payment Method
+                {t("Select Payment Method")}
               </h2>
 
               {/* Payment Methods */}
@@ -631,7 +781,7 @@ Bus Booking Team
                 <div className="bg-neutral-50 dark:bg-neutral-800/50 rounded-xl p-5 text-center">
                   <FaMoneyBill className="text-4xl text-green-600 mx-auto mb-2" />
                   <p className="text-sm font-semibold">
-                    You will pay Rs. {totalAmount} in cash
+                    You will pay RWF {Number(totalAmount).toLocaleString()} in cash
                   </p>
                   <p className="text-xs text-neutral-500 mt-2">
                     Please arrive 30 minutes before departure at the bus station
@@ -689,7 +839,7 @@ Bus Booking Team
         <div className="lg:col-span-1">
           <div className="bg-gradient-to-br from-violet-50 to-indigo-50 dark:from-violet-950/30 dark:to-indigo-950/30 rounded-xl p-6 sticky top-24">
             <h2 className="text-xl font-bold text-neutral-800 dark:text-neutral-100 mb-4">
-              Booking Summary
+              {t("Booking Summary")}
             </h2>
 
             <div className="space-y-4">
@@ -732,12 +882,12 @@ Bus Booking Team
               <div className="pt-2">
                 <div className="flex justify-between mb-2">
                   <span className="text-neutral-600">Subtotal</span>
-                  <span>Rs. {totalAmount}</span>
+                  <span>RWF {Number(totalAmount).toLocaleString()}</span>
                 </div>
                 <div className="flex justify-between pt-2 mt-2 border-t-2 border-violet-600">
                   <span className="font-bold text-lg">Total</span>
                   <span className="font-bold text-xl text-violet-600">
-                    Rs. {totalAmount}
+                    RWF {Number(totalAmount).toLocaleString()}
                   </span>
                 </div>
               </div>
@@ -795,7 +945,7 @@ Bus Booking Team
 
             <div className="bg-yellow-50 dark:bg-yellow-950/20 p-3 rounded-lg mb-4">
               <p className="text-xs text-yellow-600 dark:text-yellow-400 text-center">
-                Amount to pay: <strong>Rs. {totalAmount}</strong>
+                Amount to pay: <strong>RWF {Number(totalAmount).toLocaleString()}</strong>
                 <br />
                 You will receive confirmation via SMS and Email
               </p>

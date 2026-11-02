@@ -1,21 +1,29 @@
 import React, { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { LiaTimesSolid } from "react-icons/lia";
-import { FaPhone } from "react-icons/fa";
+import { FaPhone, FaSignOutAlt, FaUserCircle } from "react-icons/fa";
 
 import Logo from "../../assets/logo.png";
 import Theme from "../theme/Theme";
+import { useLanguage } from "../../context/LanguageContext";
 
 const Navbar = () => {
   const [open, setOpen] = useState(false);
   const [currentUser, setCurrentUser] = useState(null);
   const navigate = useNavigate();
+  const { t } = useLanguage();
 
   useEffect(() => {
-    const user = localStorage.getItem("currentUser");
-    if (user) {
-      setCurrentUser(JSON.parse(user));
-    }
+    const refreshUser = () => {
+      const storedUser = localStorage.getItem("currentUser");
+      setCurrentUser(storedUser ? JSON.parse(storedUser) : null);
+    };
+    refreshUser();
+    window.addEventListener("storage", refreshUser);
+    window.addEventListener("user-session-change", refreshUser);
+    return () => {
+      window.removeEventListener("storage", refreshUser);
+      window.removeEventListener("user-session-change", refreshUser);
+    };
   }, []);
 
   const navLinks = [
@@ -50,7 +58,7 @@ const Navbar = () => {
                 to={link.href}
                 onClick={handleClose}
                 className="hover:text-violet-600 ease-in-out duration-300">
-                {link.label}
+                {t(link.label)}
               </Link>
             </li>
           ))}
@@ -62,7 +70,7 @@ const Navbar = () => {
               <FaPhone className="text-neutral-50 text-sm" />
             </div>
             <div className="space-y-0.5">
-              <p className="text-xs text-neutral-200 font-light">Need Help?</p>
+              <p className="text-xs text-neutral-200 font-light">{t("Need Help?")}</p>
               <p className="text-xs font-normal text-neutral-50 tracking-wide">
                 +250 796261912
               </p>
@@ -71,6 +79,49 @@ const Navbar = () => {
 
           {/* Theme */}
           <Theme />
+          {currentUser ? (
+            <div className="flex items-center gap-3">
+              {currentUser.role === "passenger" ? (
+                <Link
+                  to="/account"
+                  onClick={handleClose}
+                  className="flex items-center gap-2 text-sm text-neutral-700 hover:text-violet-600 dark:text-neutral-200"
+                >
+                  <FaUserCircle />
+                  <span>{currentUser.name || t("My account")}</span>
+                </Link>
+              ) : (
+                <Link
+                  to="/admin"
+                  onClick={handleClose}
+                  className="text-sm text-neutral-700 hover:text-violet-600 dark:text-neutral-200"
+                >
+                  {t("Admin dashboard")}
+                </Link>
+              )}
+              <button
+                type="button"
+                onClick={() => {
+                  localStorage.removeItem("currentUser");
+                  window.dispatchEvent(new Event("user-session-change"));
+                  setOpen(false);
+                  navigate("/");
+                }}
+                className="flex items-center gap-2 text-sm text-red-600 hover:text-red-700"
+              >
+                <FaSignOutAlt />
+                <span>{t("Logout")}</span>
+              </button>
+            </div>
+          ) : (
+            <Link
+              to="/login"
+              onClick={handleClose}
+              className="rounded-md bg-violet-600 px-4 py-2 text-sm font-medium text-white hover:bg-violet-700"
+            >
+              {t("Login / Register")}
+            </Link>
+          )}
         </div>
       </div>
     </div>

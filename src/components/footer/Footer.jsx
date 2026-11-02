@@ -3,8 +3,10 @@ import { FaMapPin } from 'react-icons/fa6'
 import { Link } from 'react-router-dom'
 
 import Logo from "../../assets/logo.png";
+import { useLanguage } from "../../context/LanguageContext";
 
 const Footer = () => {
+  const { t } = useLanguage();
   return (
     <footer className="w-full lg:px-28 md:px-16 sm:px-7 px-4 py-8 bg-neutral-200/60 dark:bg-neutral-900/70">
       <div className="grid grid-cols-5 gap-5">
@@ -18,25 +20,25 @@ const Footer = () => {
         </div>
 
         <div className="space-y-7">
-          <h1 className="text-lg font-medium">About Us</h1>
+          <h1 className="text-lg font-medium">{t("About Us")}</h1>
           <ul className="space-y-2 text-neutral-600 dark:text-neutral-500 text-base font-normal">
             <li>
-              <Link to="#" className='hover:text-violet-600 ease-in-out duration-300'>About Us</Link>
+              <Link to="/about" className='hover:text-violet-600 ease-in-out duration-300'>{t("About Us")}</Link>
             </li>
             <li>
-              <Link to="#" className='hover:text-violet-600 ease-in-out duration-300'>Contact Us</Link>
+              <Link to="#" className='hover:text-violet-600 ease-in-out duration-300'>{t("Contact Us")}</Link>
             </li>
             <li>
-              <Link to="#" className='hover:text-violet-600 ease-in-out duration-300'>Privacy Policy</Link>
+              <Link to="#" className='hover:text-violet-600 ease-in-out duration-300'>{t("Privacy Policy")}</Link>
             </li>
             <li>
-              <Link to="#" className='hover:text-violet-600 ease-in-out duration-300'>Terms and Conditions</Link>
+              <Link to="#" className='hover:text-violet-600 ease-in-out duration-300'>{t("Terms and Conditions")}</Link>
             </li>
           </ul>
         </div>
 
         <div className="space-y-7">
-          <h1 className="text-lg font-medium">Services</h1>
+          <h1 className="text-lg font-medium">{t("Services")}</h1>
           <ul className="space-y-2 text-neutral-600 dark:text-neutral-500 text-base font-normal">
             <li>
               <Link to="#" className='hover:text-violet-600 ease-in-out duration-300'>Safety Guarantee</Link>
@@ -54,7 +56,7 @@ const Footer = () => {
         </div>
 
         <div className="space-y-7">
-          <h1 className="text-lg font-medium">Get In Touch</h1>
+          <h1 className="text-lg font-medium">{t("Get In Touch")}</h1>
           <div className="space-y-4">
             <div className="flex gap-x-2">
               <FaMapPin className='text-2xl text-neutral-600 dark:text-neutral-500' />

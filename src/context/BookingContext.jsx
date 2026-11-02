@@ -11,6 +11,9 @@ const initialState = {
   selectedSeats: [],
   busType: "",
   busId: "",
+  busName: "",
+  busPrice: 750,
+  busDetails: null,
   passengerInfo: {
     fullname: "",
     email: "",
@@ -48,12 +51,17 @@ function bookingReducer(state, action) {
       }
       return { ...state, selectedSeats: [...state.selectedSeats, seatNumber] };
     }
-    case "SET_BUS":
+    case "SET_BUS": {
+      const payload = action.payload ?? {};
       return {
         ...state,
-        busType: action.payload.busType ?? "",
-        busId: action.payload.busId ?? "",
+        busType: payload.busType ?? state.busType ?? "",
+        busId: payload.busId ?? state.busId ?? "",
+        busName: payload.busName ?? state.busName ?? "",
+        busPrice: Number(payload.price ?? state.busPrice ?? 750),
+        busDetails: payload.busDetails ?? state.busDetails ?? null,
       };
+    }
     case "SET_PASSENGER_INFO":
       return {
         ...state,
@@ -84,8 +92,11 @@ export function BookingProvider({ children }) {
         dispatch({ type: "TOGGLE_SEAT", payload: seatNumber }),
       setSelectedSeats: (selectedSeats) =>
         dispatch({ type: "SET_SELECTED_SEATS", payload: selectedSeats }),
-      setBus: (busType, busId) =>
-        dispatch({ type: "SET_BUS", payload: { busType, busId } }),
+      setBus: (busType, busId, price, busName, busDetails) =>
+        dispatch({
+          type: "SET_BUS",
+          payload: { busType, busId, price, busName, busDetails },
+        }),
       setPassengerInfo: (info) =>
         dispatch({ type: "SET_PASSENGER_INFO", payload: info }),
       resetBooking: () => dispatch({ type: "RESET_BOOKING" }),

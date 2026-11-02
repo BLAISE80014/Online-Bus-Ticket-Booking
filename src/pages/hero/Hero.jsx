@@ -3,9 +3,11 @@ import { useNavigate } from "react-router-dom";
 import Bus2 from "../../assets/Bg1.jpg";
 import Bus3 from "../../assets/Bus5.png";
 import { motion } from "framer-motion";
+import { useLanguage } from "../../context/LanguageContext";
 
 function Hero() {
   const navigate = useNavigate();
+  const { t } = useLanguage();
 
   const imageVariants = {
     initial: {
@@ -22,13 +24,17 @@ function Hero() {
     },
   };
 
-  // Iyi function ijyana kuri detail ya bus (urugero: luxury bus)
   const handleReserveSeat = () => {
     navigate("/bus/detail", {
       state: {
+        id: 3,
         name: "Luxury Bus",
         plate: "RAB 123A",
         rating: 4.5,
+        price: 1200,
+        type: "luxury",
+        company: "Royal Connect",
+        passengers: 40,
       },
     });
   };
@@ -54,20 +60,17 @@ function Hero() {
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.6 }}>
           <h1 className="text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-bold text-white leading-tight">
-            Reserve Your Bus
-            <span className="text-violet-400"> Ticket</span>
-            Now
+            {t("Reserve Your Bus Ticket Now")}
           </h1>
 
           <p className="text-base sm:text-lg md:text-xl text-neutral-300">
-            Find and book bus tickets with just a few clicks. We offer a wide
-            range of bus routes and schedules to suit your needs.
+            {t("Find and book bus tickets with just a few clicks. We offer a wide range of bus routes and schedules to suit your needs.")}
           </p>
 
           <button
             onClick={handleReserveSeat}
             className="w-fit bg-violet-700 hover:bg-violet-800 text-white px-6 py-3 rounded-md transition-colors duration-300">
-            Reserve Seat Now
+            {t("Reserve Seat Now")}
           </button>
         </motion.div>
 

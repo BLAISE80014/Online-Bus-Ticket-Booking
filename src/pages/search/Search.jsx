@@ -1,10 +1,12 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useBooking } from "../../context/BookingContext";
+import { useLanguage } from "../../context/LanguageContext";
 
 function Search() {
   const navigate = useNavigate();
   const { setFrom, setTo, setTravelDate, setTravelTime } = useBooking();
+  const { t } = useLanguage();
 
   const [formData, setFormData] = useState({
     from: "",
@@ -31,7 +33,6 @@ function Search() {
     const { id, value } = e.target;
     setFormData((prev) => ({ ...prev, [id]: value }));
 
-    // Update context
     if (id === "from") setFrom(value);
     if (id === "to") setTo(value);
     if (id === "date") setTravelDate(value);
@@ -42,7 +43,12 @@ function Search() {
     e.preventDefault();
 
     if (!formData.from || !formData.to) {
-      alert("Please select both departure and arrival locations");
+      alert("Please select both departure and arrival locations.");
+      return;
+    }
+
+    if (formData.from === formData.to) {
+      alert("Departure and destination must be different.");
       return;
     }
 
@@ -84,11 +90,13 @@ function Search() {
                 className="w-full appearance-none text-neutral-800 dark:text-neutral-100 bg-neutral-200/60 dark:bg-neutral-900/60 px-3 h-12 border border-neutral-200 dark:border-neutral-900 rounded-md focus:outline-none focus:bg-neutral-100 dark:focus:bg-neutral-900"
                 required>
                 <option value="">Select Location</option>
-                {locations.map((loc) => (
-                  <option key={loc} value={loc}>
-                    {loc}
-                  </option>
-                ))}
+                {locations
+                  .filter((loc) => loc !== formData.from)
+                  .map((loc) => (
+                    <option key={loc} value={loc}>
+                      {loc}
+                    </option>
+                  ))}
               </select>
             </div>
 
@@ -102,6 +110,7 @@ function Search() {
                 value={formData.date}
                 onChange={handleChange}
                 className="w-full appearance-none text-neutral-800 dark:text-neutral-100 bg-neutral-200/60 dark:bg-neutral-900/60 px-3 h-12 border border-neutral-200 dark:border-neutral-900 rounded-md focus:outline-none focus:bg-neutral-100 dark:focus:bg-neutral-900"
+                min={new Date().toISOString().split("T")[0]}
               />
             </div>
 
@@ -122,7 +131,7 @@ function Search() {
               <button
                 type="submit"
                 className="w-full px-4 h-12 bg-violet-600 text-neutral-50 text-base font-normal rounded-md hover:bg-violet-700 transition-colors">
-                Search Buses
+                {t("Search Buses")}
               </button>
             </div>
           </div>

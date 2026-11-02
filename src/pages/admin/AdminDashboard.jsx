@@ -52,6 +52,13 @@ import {
   AreaChart,
 } from "recharts";
 import { useNavigate } from "react-router-dom";
+import {
+  addSystemNotification,
+  readStoredArray,
+  saveRegisteredUsers,
+  writeStoredArray,
+} from "../../utils/storage";
+import { useLanguage } from "../../context/LanguageContext";
 // Modal Component
 function Modal({ isOpen, onClose, title, children, darkMode }) {
   if (!isOpen) return null;
@@ -120,10 +127,12 @@ function PasswordStrength({ password }) {
 // Main Dashboard Component
 function AdminDashboard() {
   const navigate = useNavigate();
+  const { language, changeLanguage, t } = useLanguage();
   const [currentUser, setCurrentUser] = useState(null);
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [activeMenu, setActiveMenu] = useState("dashboard");
   const [darkMode, setDarkMode] = useState(false);
+  const [dataLoaded, setDataLoaded] = useState(false);
 
   // Modal states
   const [showAddBus, setShowAddBus] = useState(false);
@@ -192,7 +201,7 @@ function AdminDashboard() {
   const [systemPrefs, setSystemPrefs] = useState({
     autoSeatTimeout: 15,
     cancellationRules: "Cancel 2 hours before",
-    defaultLanguage: "English",
+    defaultLanguage: localStorage.getItem("appLanguage") || "en",
     timeZone: "Africa/Kigali",
   });
 
@@ -313,30 +322,19 @@ function AdminDashboard() {
       ]);
     }
 
-    const savedBookings = localStorage.getItem("bookings");
-    if (savedBookings && JSON.parse(savedBookings).length > 0) {
-      setBookings(JSON.parse(savedBookings));
-    } else {
-      setBookings([
-        {
-          id: "BK001",
-          passenger: "John Doe",
-          routeId: "Kigali - Musanze",
-          dateTime: "2024-01-15 14:30",
-          amount: "5000",
-          status: "Confirmed",
-        },
-      ]);
-    }
+    setBookings(readStoredArray("bookings"));
 
-    const savedUsers = localStorage.getItem("systemUsers");
-    if (savedUsers) setUsers(JSON.parse(savedUsers));
+    const savedUsers = readStoredArray("systemUsers");
+    const registeredUsers = readStoredArray("users");
+    setUsers(
+      savedUsers.length > 0
+        ? savedUsers
+        : registeredUsers.map(({ password, ...user }) => user),
+    );
 
-    const savedPayments = localStorage.getItem("payments");
-    if (savedPayments) setPayments(JSON.parse(savedPayments));
+    setPayments(readStoredArray("payments"));
 
-    const savedNotifications = localStorage.getItem("notifications");
-    if (savedNotifications) setNotifications(JSON.parse(savedNotifications));
+    setNotifications(readStoredArray("notifications"));
 
     const savedStaff = localStorage.getItem("staff");
     if (savedStaff && JSON.parse(savedStaff).length > 0) {
@@ -355,58 +353,94 @@ function AdminDashboard() {
 
     const savedDarkMode = localStorage.getItem("darkMode") === "true";
     setDarkMode(savedDarkMode);
+
+    const syncSharedRecords = (event) => {
+      const keys =
+        event.type === "app-storage-change"
+          ? [event.detail?.key]
+          : ["buses", "routes", "bookings", "payments", "notifications", "users"];
+
+      if (keys.includes("buses")) setBuses(readStoredArray("buses"));
+      if (keys.includes("routes")) setRoutes(readStoredArray("routes"));
+      if (keys.includes("bookings")) setBookings(readStoredArray("bookings"));
+      if (keys.includes("payments")) setPayments(readStoredArray("payments"));
+      if (keys.includes("notifications"))
+        setNotifications(readStoredArray("notifications"));
+      if (keys.includes("users")) {
+        const currentSystemUsers = readStoredArray("systemUsers");
+        const currentRegisteredUsers = readStoredArray("users");
+        setUsers(
+          currentSystemUsers.length > 0
+            ? currentSystemUsers
+            : currentRegisteredUsers.map(({ password, ...user }) => user),
+        );
+      }
+    };
+    window.addEventListener("storage", syncSharedRecords);
+    window.addEventListener("app-storage-change", syncSharedRecords);
+    setDataLoaded(true);
+    return () => {
+      window.removeEventListener("storage", syncSharedRecords);
+      window.removeEventListener("app-storage-change", syncSharedRecords);
+    };
   }, [navigate]);
 
   // Save to localStorage
   useEffect(() => {
+    if (!dataLoaded) return;
     localStorage.setItem("darkMode", darkMode);
     if (darkMode) {
       document.documentElement.classList.add("dark");
     } else {
       document.documentElement.classList.remove("dark");
     }
-  }, [darkMode]);
+  }, [darkMode, dataLoaded]);
 
   useEffect(() => {
-    if (buses.length) localStorage.setItem("buses", JSON.stringify(buses));
-  }, [buses]);
+    if (dataLoaded) localStorage.setItem("buses", JSON.stringify(buses));
+  }, [buses, dataLoaded]);
   useEffect(() => {
-    if (routes.length) localStorage.setItem("routes", JSON.stringify(routes));
-  }, [routes]);
+    if (dataLoaded) localStorage.setItem("routes", JSON.stringify(routes));
+  }, [routes, dataLoaded]);
   useEffect(() => {
-    if (bookings.length)
-      localStorage.setItem("bookings", JSON.stringify(bookings));
-  }, [bookings]);
+    if (dataLoaded) localStorage.setItem("bookings", JSON.stringify(bookings));
+  }, [bookings, dataLoaded]);
   useEffect(() => {
-    localStorage.setItem("systemUsers", JSON.stringify(users));
-  }, [users]);
+    if (dataLoaded) localStorage.setItem("systemUsers", JSON.stringify(users));
+  }, [users, dataLoaded]);
   useEffect(() => {
-    localStorage.setItem("payments", JSON.stringify(payments));
-  }, [payments]);
+    if (dataLoaded) localStorage.setItem("payments", JSON.stringify(payments));
+  }, [payments, dataLoaded]);
   useEffect(() => {
-    localStorage.setItem("staff", JSON.stringify(staff));
-  }, [staff]);
+    if (dataLoaded) localStorage.setItem("staff", JSON.stringify(staff));
+  }, [staff, dataLoaded]);
   useEffect(() => {
-    localStorage.setItem("notifications", JSON.stringify(notifications));
-  }, [notifications]);
+    if (dataLoaded)
+      localStorage.setItem("notifications", JSON.stringify(notifications));
+  }, [notifications, dataLoaded]);
   useEffect(() => {
-    localStorage.setItem("companySettings", JSON.stringify(company));
-  }, [company]);
+    if (dataLoaded)
+      localStorage.setItem("companySettings", JSON.stringify(company));
+  }, [company, dataLoaded]);
   useEffect(() => {
-    localStorage.setItem("paymentSettings", JSON.stringify(paymentSettings));
-  }, [paymentSettings]);
+    if (dataLoaded)
+      localStorage.setItem("paymentSettings", JSON.stringify(paymentSettings));
+  }, [paymentSettings, dataLoaded]);
   useEffect(() => {
+    if (!dataLoaded) return;
     localStorage.setItem(
       "notificationSettings",
       JSON.stringify(notificationSettings),
     );
-  }, [notificationSettings]);
+  }, [notificationSettings, dataLoaded]);
   useEffect(() => {
-    localStorage.setItem("systemPreferences", JSON.stringify(systemPrefs));
-  }, [systemPrefs]);
+    if (dataLoaded)
+      localStorage.setItem("systemPreferences", JSON.stringify(systemPrefs));
+  }, [systemPrefs, dataLoaded]);
 
   const handleLogout = () => {
     localStorage.removeItem("currentUser");
+    window.dispatchEvent(new Event("user-session-change"));
     navigate("/login");
   };
 
@@ -531,9 +565,16 @@ function AdminDashboard() {
 
   const addRoute = () => {
     if (newRoute.from && newRoute.to) {
+      if (!Number.isFinite(Number(newRoute.price)) || Number(newRoute.price) <= 0) {
+        addNotification("Route price must be greater than zero RWF.");
+        return;
+      }
       const newId =
         routes.length > 0 ? Math.max(...routes.map((r) => r.id)) + 1 : 1;
-      setRoutes([...routes, { id: newId, ...newRoute }]);
+      setRoutes([
+        ...routes,
+        { id: newId, ...newRoute, price: Number(newRoute.price), currency: "RWF" },
+      ]);
       setNewRoute({ from: "", to: "", distance: "", duration: "", price: "" });
       setShowAddRoute(false);
       addNotification(`New route added: ${newRoute.from} → ${newRoute.to}`);
@@ -596,20 +637,21 @@ function AdminDashboard() {
   };
 
   const addNotification = (message) => {
-    const newNotif = {
-      id: Date.now(),
-      message,
-      date: new Date().toLocaleString(),
-      read: false,
-    };
-    setNotifications((prev) => [newNotif, ...prev]);
+    addSystemNotification(message, "admin");
+    setNotifications(readStoredArray("notifications"));
   };
 
   const deleteBus = (id) => setBuses(buses.filter((b) => b.id !== id));
   const deleteRoute = (id) => setRoutes(routes.filter((r) => r.id !== id));
   const deleteBooking = (id) =>
     setBookings(bookings.filter((b) => b.id !== id));
-  const deleteUser = (id) => setUsers(users.filter((u) => u.id !== id));
+  const deleteUser = (id) => {
+    setUsers(users.filter((u) => u.id !== id));
+    const registeredUsers = readStoredArray("users").filter(
+      (user) => user.id !== id,
+    );
+    saveRegisteredUsers(registeredUsers);
+  };
   const deletePayment = (id) =>
     setPayments(payments.filter((p) => p.id !== id));
 
@@ -1064,8 +1106,7 @@ function AdminDashboard() {
                     })
                   }
                   className={`w-full px-4 py-2 rounded-lg border`}>
-                  <option>RWF - Rwandan Franc</option>
-                  <option>USD - US Dollar</option>
+                  <option value="RWF">RWF - Rwandan Franc</option>
                 </select>
                 <input
                   type="number"
@@ -1228,7 +1269,7 @@ function AdminDashboard() {
           {activeSettingsTab === "system" && (
             <div
               className={`rounded-xl p-6 shadow-sm ${darkMode ? "bg-neutral-900" : "bg-white"}`}>
-              <h3 className="text-xl font-semibold mb-6">System Preferences</h3>
+              <h3 className="text-xl font-semibold mb-6">{t("System Preferences")}</h3>
               <div className="space-y-4">
                 <input
                   type="number"
@@ -1255,17 +1296,18 @@ function AdminDashboard() {
                   className={`w-full px-4 py-2 rounded-lg border`}
                 />
                 <select
-                  value={systemPrefs.defaultLanguage}
-                  onChange={(e) =>
+                  value={language}
+                  onChange={(e) => {
+                    changeLanguage(e.target.value);
                     setSystemPrefs({
                       ...systemPrefs,
                       defaultLanguage: e.target.value,
-                    })
-                  }
+                    });
+                  }}
                   className={`w-full px-4 py-2 rounded-lg border`}>
-                  <option>English</option>
-                  <option>Kinyarwanda</option>
-                  <option>French</option>
+                  <option value="en">English</option>
+                  <option value="rw">Kinyarwanda</option>
+                  <option value="fr">Français</option>
                 </select>
                 <select
                   value={systemPrefs.timeZone}
@@ -1456,6 +1498,7 @@ function AdminDashboard() {
                   <tr>
                     <th className="p-3">Name</th>
                     <th>Plate</th>
+                    <th>Company</th>
                     <th>Capacity</th>
                     <th>Type</th>
                     <th>Status</th>
@@ -1467,6 +1510,7 @@ function AdminDashboard() {
                     <tr key={bus.id} className="border-b">
                       <td className="p-3">{bus.name}</td>
                       <td className="p-3">{bus.plate}</td>
+                      <td className="p-3">{bus.company || "—"}</td>
                       <td className="p-3">{bus.capacity}</td>
                       <td className="p-3">{bus.type}</td>
                       <td className="p-3">
@@ -1518,9 +1562,10 @@ function AdminDashboard() {
                   <tr>
                     <th>From</th>
                     <th>To</th>
+                    <th>Bus / Company</th>
                     <th>Distance</th>
                     <th>Duration</th>
-                    <th>Price</th>
+                    <th>Price (RWF)</th>
                     <th>Actions</th>
                   </tr>
                 </thead>
@@ -1529,9 +1574,14 @@ function AdminDashboard() {
                     <tr key={route.id} className="border-b">
                       <td className="p-3">{route.from}</td>
                       <td className="p-3">{route.to}</td>
+                      <td className="p-3">
+                        {[route.busName, route.company].filter(Boolean).join(" / ") || "—"}
+                      </td>
                       <td className="p-3">{route.distance}</td>
                       <td className="p-3">{route.duration}</td>
-                      <td className="p-3">{route.price}</td>
+                      <td className="p-3">
+                        RWF {Number(route.price || 0).toLocaleString()}
+                      </td>
                       <td className="p-3">
                         <button
                           onClick={() => deleteRoute(route.id)}
@@ -1569,6 +1619,8 @@ function AdminDashboard() {
                     <th>ID</th>
                     <th>Passenger</th>
                     <th>Route</th>
+                    <th>Bus</th>
+                    <th>Seat(s)</th>
                     <th>Date</th>
                     <th>Amount</th>
                     <th>Status</th>
@@ -1581,8 +1633,14 @@ function AdminDashboard() {
                       <td className="p-2">{booking.id}</td>
                       <td className="p-2">{booking.passenger}</td>
                       <td className="p-2">{booking.routeId}</td>
+                      <td className="p-2">{booking.busName || "—"}</td>
+                      <td className="p-2">
+                        {booking.seats?.join(", ") || booking.seat || "—"}
+                      </td>
                       <td className="p-2">{booking.dateTime}</td>
-                      <td className="p-2">{booking.amount}</td>
+                      <td className="p-2">
+                        RWF {Number(booking.amount || 0).toLocaleString()}
+                      </td>
                       <td className="p-2">
                         <span
                           className={`px-2 py-1 rounded-full text-xs ${booking.status === "Confirmed" ? "bg-green-100" : booking.status === "Pending" ? "bg-yellow-100" : "bg-red-100"}`}>
@@ -1623,7 +1681,7 @@ function AdminDashboard() {
                 <thead
                   className={darkMode ? "bg-neutral-800" : "bg-neutral-100"}>
                   <tr>
-                    <th>Name</th>
+                    <th>Passenger</th>
                     <th>Email</th>
                     <th>Phone</th>
                     <th>Role</th>
@@ -1634,7 +1692,22 @@ function AdminDashboard() {
                 <tbody>
                   {users.map((user) => (
                     <tr key={user.id} className="border-b">
-                      <td className="p-3">{user.name}</td>
+                      <td className="p-3">
+                        <div className="flex items-center gap-3">
+                          {user.profilePicture ? (
+                            <img
+                              src={user.profilePicture}
+                              alt={`${user.name} profile`}
+                              className="h-9 w-9 rounded-full object-cover"
+                            />
+                          ) : (
+                            <span className="flex h-9 w-9 items-center justify-center rounded-full bg-violet-100 font-semibold text-violet-700">
+                              {user.name?.charAt(0)?.toUpperCase() || "?"}
+                            </span>
+                          )}
+                          <span>{user.name}</span>
+                        </div>
+                      </td>
                       <td className="p-3">{user.email}</td>
                       <td className="p-3">{user.phone}</td>
                       <td className="p-3">{user.role}</td>
@@ -1690,7 +1763,9 @@ function AdminDashboard() {
                     <tr key={payment.id} className="border-b">
                       <td className="p-3">{payment.id}</td>
                       <td className="p-3">{payment.bookingId}</td>
-                      <td className="p-3">{payment.amount}</td>
+                      <td className="p-3">
+                        RWF {Number(payment.amount || 0).toLocaleString()}
+                      </td>
                       <td className="p-3">
                         <span
                           className={`px-2 py-1 rounded-full text-xs ${payment.status === "Completed" ? "bg-green-100" : "bg-yellow-100"}`}>
@@ -1771,17 +1846,22 @@ function AdminDashboard() {
       case "notifications":
         return (
           <div>
-            <h2 className="text-2xl font-bold mb-6">Notifications</h2>
+            <h2 className="text-2xl font-bold mb-6">{t("Notifications")}</h2>
             <div
               className={`rounded-xl p-6 shadow-sm ${darkMode ? "bg-neutral-900" : "bg-white"}`}>
               {notifications.length === 0 ? (
-                <p className="text-neutral-500">No notifications yet</p>
+                <p className="text-neutral-500">{t("No notifications yet")}</p>
               ) : (
                 notifications.map((notif) => (
                   <div
                     key={notif.id}
                     className={`p-4 mb-3 rounded-lg border ${darkMode ? "border-neutral-800 hover:bg-neutral-800" : "border-neutral-200 hover:bg-neutral-50"}`}>
-                    <p>{notif.message}</p>
+                    <div className="flex items-start justify-between gap-3">
+                      <p>{notif.message}</p>
+                      <span className="shrink-0 rounded-full bg-violet-100 px-2 py-1 text-xs capitalize text-violet-700">
+                        {notif.type || "system"}
+                      </span>
+                    </div>
                     <p className="text-xs text-neutral-500 mt-1">
                       {notif.date}
                     </p>
@@ -1896,8 +1976,10 @@ function AdminDashboard() {
             className={`w-full p-2 rounded-lg border`}
           />
           <input
-            type="text"
-            placeholder="Price"
+            type="number"
+            min="1"
+            step="1"
+            placeholder="Price (RWF)"
             value={newRoute.price}
             onChange={(e) =>
               setNewRoute({ ...newRoute, price: e.target.value })
@@ -2038,8 +2120,13 @@ function AdminDashboard() {
             }
             className={`w-full p-2 rounded-lg border`}
           />
+          <label className="block text-sm font-medium">
+            Payment amount (RWF)
+          </label>
           <input
             type="number"
+            min="1"
+            step="1"
             placeholder="Amount"
             value={newPayment.amount}
             onChange={(e) =>
@@ -2085,7 +2172,16 @@ function AdminDashboard() {
               onClick={() => setActiveMenu(item.id)}
               className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${activeMenu === item.id ? "bg-violet-600 text-white" : "text-neutral-600 dark:text-neutral-400 hover:bg-neutral-100 dark:hover:bg-neutral-800"}`}>
               <item.icon className="text-lg" />
-              {sidebarOpen && <span>{item.label}</span>}
+              {sidebarOpen && (
+                <span className="flex-1 text-left">{t(item.label)}</span>
+              )}
+              {sidebarOpen &&
+                item.id === "notifications" &&
+                notifications.filter((notification) => !notification.read).length > 0 && (
+                  <span className="rounded-full bg-red-500 px-2 py-0.5 text-xs text-white">
+                    {notifications.filter((notification) => !notification.read).length}
+                  </span>
+                )}
             </button>
           ))}
           <button
@@ -2103,7 +2199,7 @@ function AdminDashboard() {
         <div
           className={`shadow-sm p-4 flex justify-between items-center sticky top-0 z-20 ${darkMode ? "bg-neutral-900" : "bg-white"}`}>
           <h2 className="text-xl font-semibold">
-            {menuItems.find((m) => m.id === activeMenu)?.label || "Dashboard"}
+            {t(menuItems.find((m) => m.id === activeMenu)?.label || "Dashboard")}
           </h2>
           <div className="flex items-center gap-4">
             <button
