@@ -1,23 +1,13 @@
 import React, { useState } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
-import {
-  addSystemNotification,
-  readStoredArray,
-  saveRegisteredUsers,
-} from "../../utils/storage";
+import Logo from "../../assets/logo.png";
+import { apiRequest } from "../../utils/api";
 import { useLanguage } from "../../context/LanguageContext";
-
-const adminAccount = {
-  name: "SmartBus Admin",
-  email: "admin@busflow.com",
-  password: "admin123",
-  role: "admin",
-};
 
 function Login() {
   const navigate = useNavigate();
   const location = useLocation();
-  const { t } = useLanguage();
+  const { changeLanguage, t } = useLanguage();
   const [mode, setMode] = useState("login");
   const [form, setForm] = useState({
     name: "",
@@ -29,6 +19,7 @@ function Login() {
   });
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
+  const [submitting, setSubmitting] = useState(false);
 
   const handleChange = (event) => {
     const { name, value } = event.target;
@@ -37,97 +28,67 @@ function Login() {
     setSuccess("");
   };
 
-  const handleSubmit = (event) => {
+  const handleSubmit = async (event) => {
     event.preventDefault();
-
-    if (mode === "register") {
-      if (form.name.trim().length < 2) {
-        setError("Enter your full name.");
-        return;
-      }
-      if (form.password.length < 8) {
-        setError("Password must contain at least 8 characters.");
-        return;
-      }
-      if (form.password !== form.confirmPassword) {
-        setError("The passwords do not match.");
-        return;
-      }
-
-      const users = readStoredArray("users");
-      if (
-        users.some(
-          (user) => user.email?.toLowerCase() === form.email.trim().toLowerCase(),
-        )
-      ) {
-        setError("An account with this email already exists. Please sign in.");
-        return;
-      }
-
-      const account = {
-        id: `passenger-${Date.now()}`,
-        name: form.name.trim(),
-        email: form.email.trim().toLowerCase(),
-        phone: form.phone.trim(),
-        password: form.password,
-        role: "passenger",
-        status: "Active",
-        bookings: 0,
-        createdAt: new Date().toISOString(),
-      };
-      saveRegisteredUsers([...users, account]);
-      addSystemNotification(
-        `Passenger registered: ${account.name} (${account.email}).`,
-        "registration",
-      );
-      setSuccess("Account created. You can now sign in.");
-      setMode("login");
-      setForm((prev) => ({
-        ...prev,
-        name: "",
-        phone: "",
-        password: "",
-        confirmPassword: "",
-        role: "passenger",
-      }));
-      return;
-    }
-
-    const users = readStoredArray("users");
-    const account =
-      form.role === "admin"
-        ? adminAccount
-        : users.find((user) => user.role === "passenger" &&
-            user.email?.toLowerCase() === form.email.trim().toLowerCase());
-
-    if (
-      !account ||
-      account.email.toLowerCase() !== form.email.trim().toLowerCase() ||
-      account.password !== form.password
-    ) {
-      setError("Invalid email or password.");
-      return;
-    }
-
-    const currentUser = {
-      id: account.id || "admin-demo",
-      name: account.name,
-      email: account.email,
-      phone: account.phone || "",
-      role: account.role,
-    };
-
-    localStorage.setItem("currentUser", JSON.stringify(currentUser));
-    window.dispatchEvent(new Event("user-session-change"));
-    if (account.role === "passenger") {
-      addSystemNotification(
-        `Passenger signed in: ${account.name} (${account.email}).`,
-        "login",
-      );
-    }
+    setSubmitting(true);
     setError("");
-    const redirectTo = location.state?.from || (account.role === "admin" ? "/admin" : "/");
-    navigate(redirectTo, { replace: true });
+    setSuccess("");
+
+    try {
+      if (mode === "register") {
+        if (form.name.trim().length < 2) {
+          setError("Enter your full name.");
+          return;
+        }
+        if (form.password !== form.confirmPassword) {
+          setError("The passwords do not match.");
+          return;
+        }
+        await apiRequest("/auth/register", {
+          method: "POST",
+          body: {
+            name: form.name,
+            email: form.email,
+            phone: form.phone,
+            password: form.password,
+          },
+        });
+        setSuccess("Account created. You can now sign in.");
+        setMode("login");
+        setForm((prev) => ({
+          ...prev,
+          name: "",
+          phone: "",
+          password: "",
+          confirmPassword: "",
+          role: "passenger",
+        }));
+        return;
+      }
+
+      const { user, token } = await apiRequest("/auth/login", {
+        method: "POST",
+        body: {
+          email: form.email,
+          password: form.password,
+          role: form.role,
+        },
+      });
+      if (user.role === "passenger" && user.language) {
+        changeLanguage(user.language);
+      }
+      localStorage.setItem("currentUser", JSON.stringify(user));
+      localStorage.setItem("authToken", token);
+      window.dispatchEvent(new Event("user-session-change"));
+      setError("");
+      const redirectTo =
+        location.state?.from || (user.role === "admin" ? "/admin" : "/");
+      navigate(redirectTo, { replace: true });
+    } catch (requestError) {
+      setError(requestError.message);
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   const switchMode = (nextMode) => {
@@ -140,10 +101,12 @@ function Login() {
     <div className="min-h-screen bg-neutral-50 dark:bg-neutral-950 px-4 py-20 flex items-center justify-center">
       <div className="w-full max-w-md rounded-3xl border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 p-8 shadow-xl">
         <div className="mb-8 text-center">
-          <p className="text-sm uppercase tracking-[0.2em] text-violet-600 font-semibold">
-            SmartBus
-          </p>
-          <h1 className="mt-2 text-3xl font-bold text-neutral-900 dark:text-white">
+          <img
+            src={Logo}
+            alt="SmartBus logo"
+            className="mx-auto mb-5 h-auto w-44 object-contain"
+          />
+          <h1 className="text-3xl font-bold text-neutral-900 dark:text-white">
             {mode === "login" ? t("Welcome back") : t("Create your account")}
           </h1>
           <p className="mt-2 text-sm text-neutral-500">
@@ -245,9 +208,14 @@ function Login() {
 
           <button
             type="submit"
+            disabled={submitting}
             className="w-full rounded-xl bg-violet-600 px-4 py-3 font-medium text-white transition hover:bg-violet-700"
           >
-            {mode === "login" ? t("Sign In") : t("Create Passenger Account")}
+            {submitting
+              ? t("Please wait...")
+              : mode === "login"
+                ? t("Sign In")
+                : t("Create Passenger Account")}
           </button>
         </form>
 
@@ -257,11 +225,6 @@ function Login() {
             {mode === "login" ? t("Create an account") : t("Sign In")}
           </button>
         </p>
-        {mode === "login" && form.role === "admin" && (
-          <p className="mt-4 text-center text-xs text-neutral-500">
-            Admin demo account: admin@busflow.com / admin123
-          </p>
-        )}
       </div>
     </div>
   );

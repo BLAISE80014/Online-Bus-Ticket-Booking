@@ -1,5 +1,5 @@
 import React from "react";
-import { Navigate, useLocation } from "react-router-dom";
+import { Navigate, Outlet, useLocation } from "react-router-dom";
 
 function ProtectedRoute({ children, requiredRole }) {
   const location = useLocation();
@@ -7,8 +7,16 @@ function ProtectedRoute({ children, requiredRole }) {
   let currentUser = null;
   try {
     const storedUser = localStorage.getItem("currentUser");
-    currentUser = storedUser ? JSON.parse(storedUser) : null;
-  } catch (error) {
+    const authToken = localStorage.getItem("authToken");
+    const parsedUser = storedUser ? JSON.parse(storedUser) : null;
+    currentUser =
+      authToken &&
+      parsedUser &&
+      typeof parsedUser === "object" &&
+      ["passenger", "admin"].includes(parsedUser.role)
+        ? parsedUser
+        : null;
+  } catch {
     currentUser = null;
   }
 
@@ -20,7 +28,7 @@ function ProtectedRoute({ children, requiredRole }) {
     return <Navigate to="/" replace />;
   }
 
-  return children;
+  return children || <Outlet />;
 }
 
 export default ProtectedRoute;

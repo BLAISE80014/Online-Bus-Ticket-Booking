@@ -103,6 +103,7 @@ const Navbar = () => {
                 type="button"
                 onClick={() => {
                   localStorage.removeItem("currentUser");
+                  localStorage.removeItem("authToken");
                   window.dispatchEvent(new Event("user-session-change"));
                   setOpen(false);
                   navigate("/");

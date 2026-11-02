@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { readStoredArray, saveRegisteredUsers } from "../../utils/storage";
+import { apiRequest } from "../../utils/api";
 import { useLanguage } from "../../context/LanguageContext";
 
 function resizeProfileImage(file) {
@@ -56,55 +56,71 @@ function Account() {
       return;
     }
 
-    const accounts = readStoredArray("users");
-    const account = accounts.find((item) => item.id === user.id);
-    setProfile({
-      name: account?.name || user.name || "",
-      phone: account?.phone || user.phone || "",
-      profilePicture: account?.profilePicture || user.profilePicture || "",
-    });
+    const loadAccount = async () => {
+      try {
+        const [{ user: account }, { records }] = await Promise.all([
+          apiRequest("/auth/me"),
+          apiRequest("/users/me/bookings"),
+        ]);
+        if (account.language) changeLanguage(account.language);
+        localStorage.setItem("currentUser", JSON.stringify(account));
+        setUser(account);
+        setProfile({
+          name: account.name || "",
+          phone: account.phone || "",
+          profilePicture: account.profilePicture || "",
+        });
+        setBookings(records);
+      } catch (requestError) {
+        setError(requestError.message);
+      }
+    };
+    loadAccount();
+  }, [changeLanguage, navigate]);
 
-    const passengerBookings = readStoredArray("bookings").filter(
-      (booking) =>
-        booking.userId === user.id ||
-        booking.email?.toLowerCase() === user.email?.toLowerCase(),
-    );
-    setBookings(passengerBookings);
-  }, [navigate, user]);
+  const updateLanguage = async (event) => {
+    const nextLanguage = event.target.value;
+    changeLanguage(nextLanguage);
+    try {
+      const { user: updatedUser } = await apiRequest("/users/me", {
+        method: "PATCH",
+        body: { name: user.name, language: nextLanguage },
+      });
+      localStorage.setItem("currentUser", JSON.stringify(updatedUser));
+      setUser(updatedUser);
+    } catch (requestError) {
+      setError(requestError.message);
+    }
+  };
 
   const bookingTotal = useMemo(
     () => bookings.reduce((total, booking) => total + Number(booking.amount || 0), 0),
     [bookings],
   );
 
-  const saveProfile = (event) => {
+  const saveProfile = async (event) => {
     event.preventDefault();
-    const accounts = readStoredArray("users");
-    const accountIndex = accounts.findIndex((item) => item.id === user.id);
-    if (accountIndex < 0) {
-      setError("Your account could not be found. Please sign in again.");
-      return;
+    try {
+      const { user: updatedUser } = await apiRequest("/users/me", {
+        method: "PATCH",
+        body: {
+          name: profile.name.trim(),
+          phone: profile.phone.trim(),
+          profilePicture: profile.profilePicture,
+        },
+      });
+      localStorage.setItem("currentUser", JSON.stringify(updatedUser));
+      setUser(updatedUser);
+      setProfile({
+        name: updatedUser.name,
+        phone: updatedUser.phone,
+        profilePicture: updatedUser.profilePicture || "",
+      });
+      setMessage("Your profile settings have been saved.");
+      setError("");
+    } catch (requestError) {
+      setError(requestError.message);
     }
-
-    const updatedAccount = {
-      ...accounts[accountIndex],
-      name: profile.name.trim(),
-      phone: profile.phone.trim(),
-      profilePicture: profile.profilePicture,
-    };
-    accounts[accountIndex] = updatedAccount;
-    saveRegisteredUsers(accounts);
-
-    const updatedUser = {
-      ...user,
-      name: updatedAccount.name,
-      phone: updatedAccount.phone,
-      profilePicture: updatedAccount.profilePicture,
-    };
-    localStorage.setItem("currentUser", JSON.stringify(updatedUser));
-    setUser(updatedUser);
-    setMessage("Your profile settings have been saved.");
-    setError("");
   };
 
   const handleProfileImage = async (event) => {
@@ -117,19 +133,13 @@ function Account() {
 
     try {
       const profilePicture = await resizeProfileImage(file);
-      setProfile((current) => ({ ...current, profilePicture }));
-      const accounts = readStoredArray("users");
-      const accountIndex = accounts.findIndex((item) => item.id === user.id);
-      if (accountIndex < 0) {
-        setError("Your account could not be found. Please sign in again.");
-        return;
-      }
-
-      accounts[accountIndex] = { ...accounts[accountIndex], profilePicture };
-      saveRegisteredUsers(accounts);
-      const updatedUser = { ...user, profilePicture };
+      const { user: updatedUser } = await apiRequest("/users/me", {
+        method: "PATCH",
+        body: { name: user.name, profilePicture },
+      });
       localStorage.setItem("currentUser", JSON.stringify(updatedUser));
       setUser(updatedUser);
+      setProfile((current) => ({ ...current, profilePicture }));
       setMessage("Your profile photo has been updated.");
       setError("");
     } catch (imageError) {
@@ -139,17 +149,8 @@ function Account() {
     }
   };
 
-  const changePassword = (event) => {
+  const changePassword = async (event) => {
     event.preventDefault();
-    const accounts = readStoredArray("users");
-    const accountIndex = accounts.findIndex((item) => item.id === user.id);
-    const account = accounts[accountIndex];
-
-    if (!account || account.password !== passwords.current) {
-      setError("Your current password is incorrect.");
-      setMessage("");
-      return;
-    }
     if (passwords.next.length < 8) {
       setError("Your new password must contain at least 8 characters.");
       setMessage("");
@@ -161,15 +162,26 @@ function Account() {
       return;
     }
 
-    accounts[accountIndex] = { ...account, password: passwords.next };
-    saveRegisteredUsers(accounts);
-    setPasswords({ current: "", next: "", confirm: "" });
-    setMessage("Your password has been changed.");
-    setError("");
+    try {
+      const response = await apiRequest("/users/me/password", {
+        method: "PUT",
+        body: {
+          currentPassword: passwords.current,
+          newPassword: passwords.next,
+        },
+      });
+      setPasswords({ current: "", next: "", confirm: "" });
+      setMessage(response.message);
+      setError("");
+    } catch (requestError) {
+      setError(requestError.message);
+      setMessage("");
+    }
   };
 
   const logout = () => {
     localStorage.removeItem("currentUser");
+    localStorage.removeItem("authToken");
     window.dispatchEvent(new Event("user-session-change"));
     navigate("/", { replace: true });
   };
@@ -317,7 +329,7 @@ function Account() {
             <select
             id="passenger-language"
             value={language}
-            onChange={(event) => changeLanguage(event.target.value)}
+            onChange={updateLanguage}
             className="w-full rounded-xl border border-neutral-200 bg-neutral-50 px-4 py-3 dark:border-neutral-700 dark:bg-neutral-950"
             >
             <option value="en">English</option>

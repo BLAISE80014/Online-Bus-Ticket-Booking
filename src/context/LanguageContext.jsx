@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useMemo, useState } from "react";
+import React, { createContext, useCallback, useContext, useMemo, useState } from "react";
 
 const translations = {
   en: {
@@ -245,7 +245,7 @@ export function LanguageProvider({ children }) {
     () => localStorage.getItem("appLanguage") || "en",
   );
 
-  const changeLanguage = (nextLanguage) => {
+  const changeLanguage = useCallback((nextLanguage) => {
     if (!translations[nextLanguage]) {
       throw new Error(`Unsupported language: ${nextLanguage}`);
     }
@@ -253,7 +253,7 @@ export function LanguageProvider({ children }) {
     document.documentElement.lang = nextLanguage;
     setLanguage(nextLanguage);
     window.dispatchEvent(new CustomEvent("app-language-change"));
-  };
+  }, []);
 
   const value = useMemo(
     () => ({
@@ -261,7 +261,7 @@ export function LanguageProvider({ children }) {
       changeLanguage,
       t: (text) => translations[language]?.[text] || text,
     }),
-    [language],
+    [language, changeLanguage],
   );
 
   React.useEffect(() => {

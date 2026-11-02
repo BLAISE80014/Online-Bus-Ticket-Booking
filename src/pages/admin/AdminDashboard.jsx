@@ -55,9 +55,9 @@ import { useNavigate } from "react-router-dom";
 import {
   addSystemNotification,
   readStoredArray,
-  saveRegisteredUsers,
   writeStoredArray,
 } from "../../utils/storage";
+import { apiRequest, persistCollection } from "../../utils/api";
 import { useLanguage } from "../../context/LanguageContext";
 // Modal Component
 function Modal({ isOpen, onClose, title, children, darkMode }) {
@@ -122,6 +122,19 @@ function PasswordStrength({ password }) {
       </p>
     </div>
   );
+}
+
+function saveAdminCollection(key, records) {
+  persistCollection(key, records).catch((error) => {
+    console.error(`Could not save ${key} to the database:`, error);
+  });
+}
+
+function getNextNumericId(records) {
+  const numericIds = records
+    .map((record) => Number(record.id))
+    .filter(Number.isFinite);
+  return Math.max(0, ...numericIds) + 1;
 }
 
 // Main Dashboard Component
@@ -354,6 +367,90 @@ function AdminDashboard() {
     const savedDarkMode = localStorage.getItem("darkMode") === "true";
     setDarkMode(savedDarkMode);
 
+    let active = true;
+    const loadRecords = async (data, key, fallback = []) => {
+      const remoteRecords = data[key];
+      if (Array.isArray(remoteRecords) && remoteRecords.length > 0) {
+        return remoteRecords;
+      }
+
+      let localRecords = readStoredArray(key);
+      if (key === "systemUsers" && localRecords.length === 0) {
+        localRecords = readStoredArray("users").map(({ password, ...user }) => user);
+      }
+      const records = localRecords.length > 0 ? localRecords : fallback;
+      if (records.length > 0) await persistCollection(key, records);
+      return records;
+    };
+    const loadSettings = async (data, key, fallback) => {
+      const remoteRecords = data[key];
+      if (Array.isArray(remoteRecords) && remoteRecords.length > 0) {
+        return remoteRecords[0];
+      }
+      const localValue = localStorage.getItem(key);
+      if (localValue) {
+        const parsed = JSON.parse(localValue);
+        const record = Array.isArray(parsed) ? parsed[0] : parsed;
+        if (record && typeof record === "object") {
+          await persistCollection(key, [record]);
+          return record;
+        }
+      }
+      return fallback;
+    };
+    const loadDashboardData = async () => {
+      const { data } = await apiRequest("/admin/data");
+      const [savedBuses, savedRoutes, savedBookings, savedPayments,
+        savedNotifications, savedStaff, savedLoginHistory, savedSystemUsers,
+        savedCompany, savedPaymentSettings, savedNotificationSettings,
+        savedSystemPreferences] = await Promise.all([
+        loadRecords(data, "buses", [
+          { id: 1, name: "Luxury Bus", plate: "RAB 123A", capacity: 50, type: "Luxury", status: "Active" },
+        ]),
+        loadRecords(data, "routes", [
+          { id: 1, from: "Kigali", to: "Musanze", distance: "95km", duration: "2.5h", price: "5000" },
+        ]),
+        loadRecords(data, "bookings"),
+        loadRecords(data, "payments"),
+        loadRecords(data, "notifications"),
+        loadRecords(data, "staff", [
+          { id: 1, name: "Admin User", email: "admin@busflow.com", role: "Admin", status: "Active" },
+        ]),
+        loadRecords(data, "loginHistory"),
+        loadRecords(data, "systemUsers"),
+        loadSettings(data, "companySettings", company),
+        loadSettings(data, "paymentSettings", paymentSettings),
+        loadSettings(data, "notificationSettings", notificationSettings),
+        loadSettings(data, "systemPreferences", systemPrefs),
+      ]);
+      if (!active) return;
+      setBuses(savedBuses);
+      setRoutes(savedRoutes);
+      setBookings(savedBookings);
+      setUsers([
+        ...(data.users || []).filter((user) => user.role === "passenger"),
+        ...savedSystemUsers.filter(
+          (savedUser) =>
+            !(data.users || []).some(
+              (databaseUser) => databaseUser.email === savedUser.email,
+            ),
+        ),
+      ]);
+      setPayments(savedPayments);
+      setNotifications(savedNotifications);
+      setStaff(savedStaff);
+      setLoginHistory(savedLoginHistory);
+      setCompany(savedCompany);
+      setPaymentSettings(savedPaymentSettings);
+      setNotificationSettings(savedNotificationSettings);
+      setSystemPrefs(savedSystemPreferences);
+      localStorage.removeItem("users");
+      setDataLoaded(true);
+    };
+    loadDashboardData().catch((error) => {
+      console.error("Could not load admin data from MongoDB:", error);
+    });
+
     const syncSharedRecords = (event) => {
       const keys =
         event.type === "app-storage-change"
@@ -378,8 +475,8 @@ function AdminDashboard() {
     };
     window.addEventListener("storage", syncSharedRecords);
     window.addEventListener("app-storage-change", syncSharedRecords);
-    setDataLoaded(true);
     return () => {
+      active = false;
       window.removeEventListener("storage", syncSharedRecords);
       window.removeEventListener("app-storage-change", syncSharedRecords);
     };
@@ -397,34 +494,58 @@ function AdminDashboard() {
   }, [darkMode, dataLoaded]);
 
   useEffect(() => {
-    if (dataLoaded) localStorage.setItem("buses", JSON.stringify(buses));
+    if (dataLoaded) {
+      localStorage.setItem("buses", JSON.stringify(buses));
+      saveAdminCollection("buses", buses);
+    }
   }, [buses, dataLoaded]);
   useEffect(() => {
-    if (dataLoaded) localStorage.setItem("routes", JSON.stringify(routes));
+    if (dataLoaded) {
+      localStorage.setItem("routes", JSON.stringify(routes));
+      saveAdminCollection("routes", routes);
+    }
   }, [routes, dataLoaded]);
   useEffect(() => {
-    if (dataLoaded) localStorage.setItem("bookings", JSON.stringify(bookings));
+    if (dataLoaded) {
+      localStorage.setItem("bookings", JSON.stringify(bookings));
+      saveAdminCollection("bookings", bookings);
+    }
   }, [bookings, dataLoaded]);
   useEffect(() => {
-    if (dataLoaded) localStorage.setItem("systemUsers", JSON.stringify(users));
+    if (dataLoaded) {
+      localStorage.setItem("systemUsers", JSON.stringify(users));
+      saveAdminCollection("systemUsers", users);
+    }
   }, [users, dataLoaded]);
   useEffect(() => {
-    if (dataLoaded) localStorage.setItem("payments", JSON.stringify(payments));
+    if (dataLoaded) {
+      localStorage.setItem("payments", JSON.stringify(payments));
+      saveAdminCollection("payments", payments);
+    }
   }, [payments, dataLoaded]);
   useEffect(() => {
-    if (dataLoaded) localStorage.setItem("staff", JSON.stringify(staff));
+    if (dataLoaded) {
+      localStorage.setItem("staff", JSON.stringify(staff));
+      saveAdminCollection("staff", staff);
+    }
   }, [staff, dataLoaded]);
   useEffect(() => {
-    if (dataLoaded)
+    if (dataLoaded) {
       localStorage.setItem("notifications", JSON.stringify(notifications));
+      saveAdminCollection("notifications", notifications);
+    }
   }, [notifications, dataLoaded]);
   useEffect(() => {
-    if (dataLoaded)
+    if (dataLoaded) {
       localStorage.setItem("companySettings", JSON.stringify(company));
+      saveAdminCollection("companySettings", [company]);
+    }
   }, [company, dataLoaded]);
   useEffect(() => {
-    if (dataLoaded)
+    if (dataLoaded) {
       localStorage.setItem("paymentSettings", JSON.stringify(paymentSettings));
+      saveAdminCollection("paymentSettings", [paymentSettings]);
+    }
   }, [paymentSettings, dataLoaded]);
   useEffect(() => {
     if (!dataLoaded) return;
@@ -432,14 +553,18 @@ function AdminDashboard() {
       "notificationSettings",
       JSON.stringify(notificationSettings),
     );
+    saveAdminCollection("notificationSettings", [notificationSettings]);
   }, [notificationSettings, dataLoaded]);
   useEffect(() => {
-    if (dataLoaded)
+    if (dataLoaded) {
       localStorage.setItem("systemPreferences", JSON.stringify(systemPrefs));
+      saveAdminCollection("systemPreferences", [systemPrefs]);
+    }
   }, [systemPrefs, dataLoaded]);
 
   const handleLogout = () => {
     localStorage.removeItem("currentUser");
+    localStorage.removeItem("authToken");
     window.dispatchEvent(new Event("user-session-change"));
     navigate("/login");
   };
@@ -448,55 +573,68 @@ function AdminDashboard() {
     const file = e.target.files[0];
     if (file) {
       const reader = new FileReader();
-      reader.onloadend = () => {
-        setProfile({ ...profile, profilePicture: reader.result });
-        if (currentUser) {
-          const updatedUser = { ...currentUser, profilePicture: reader.result };
-          localStorage.setItem("currentUser", JSON.stringify(updatedUser));
-          setCurrentUser(updatedUser);
+      reader.onloadend = async () => {
+        try {
+          const { user } = await apiRequest("/users/me", {
+            method: "PATCH",
+            body: {
+              name: profile.fullName,
+              profilePicture: reader.result,
+            },
+          });
+          setProfile((current) => ({ ...current, profilePicture: user.profilePicture }));
+          localStorage.setItem("currentUser", JSON.stringify(user));
+          setCurrentUser(user);
+        } catch (error) {
+          console.error("Could not save admin profile photo:", error);
         }
       };
       reader.readAsDataURL(file);
     }
   };
 
-  const saveProfile = () => {
+  const saveProfile = async () => {
     if (currentUser) {
-      const updatedUser = {
-        ...currentUser,
-        name: profile.fullName,
-        email: profile.email,
-        phone: profile.phone,
-        bio: profile.bio,
-        profilePicture: profile.profilePicture,
-      };
-      localStorage.setItem("currentUser", JSON.stringify(updatedUser));
-      setCurrentUser(updatedUser);
-      addNotification("Profile updated successfully!");
+      try {
+        const { user } = await apiRequest("/users/me", {
+          method: "PATCH",
+          body: {
+            name: profile.fullName,
+            phone: profile.phone,
+            bio: profile.bio,
+            profilePicture: profile.profilePicture,
+          },
+        });
+        localStorage.setItem("currentUser", JSON.stringify(user));
+        setCurrentUser(user);
+        addNotification("Profile updated successfully!");
+      } catch (error) {
+        console.error("Could not save admin profile:", error);
+      }
     }
   };
 
-  const changePassword = () => {
+  const changePassword = async () => {
     if (passwordData.newPassword !== passwordData.confirmPassword) {
       addNotification("Passwords do not match!");
       return;
     }
-    if (passwordData.newPassword.length < 6) {
-      addNotification("Password must be at least 6 characters!");
+    if (passwordData.newPassword.length < 8) {
+      addNotification("Password must be at least 8 characters!");
       return;
     }
     if (currentUser) {
-      const allUsers = JSON.parse(localStorage.getItem("users") || "[]");
-      const userIndex = allUsers.findIndex((u) => u.id === currentUser.id);
-      if (userIndex !== -1) {
-        allUsers[userIndex].password = passwordData.newPassword;
-        localStorage.setItem("users", JSON.stringify(allUsers));
-        const updatedUser = {
-          ...currentUser,
-          password: passwordData.newPassword,
-        };
-        localStorage.setItem("currentUser", JSON.stringify(updatedUser));
-        setCurrentUser(updatedUser);
+      try {
+        await apiRequest("/users/me/password", {
+          method: "PUT",
+          body: {
+            currentPassword: passwordData.currentPassword,
+            newPassword: passwordData.newPassword,
+          },
+        });
+      } catch (error) {
+        addNotification(error.message);
+        return;
       }
     }
     addNotification("Password changed successfully!");
@@ -509,14 +647,14 @@ function AdminDashboard() {
 
   const logoutFromAllDevices = () => {
     localStorage.removeItem("currentUser");
+    localStorage.removeItem("authToken");
     navigate("/login");
     addNotification("Logged out from all devices");
   };
 
   const addStaffMember = () => {
     if (newStaff.name && newStaff.email) {
-      const newId =
-        staff.length > 0 ? Math.max(...staff.map((s) => s.id)) + 1 : 1;
+      const newId = getNextNumericId(staff);
       setStaff([
         ...staff,
         {
@@ -548,8 +686,7 @@ function AdminDashboard() {
 
   const addBus = () => {
     if (newBus.name && newBus.plate) {
-      const newId =
-        buses.length > 0 ? Math.max(...buses.map((b) => b.id)) + 1 : 1;
+      const newId = getNextNumericId(buses);
       setBuses([...buses, { id: newId, ...newBus }]);
       setNewBus({
         name: "",
@@ -569,8 +706,7 @@ function AdminDashboard() {
         addNotification("Route price must be greater than zero RWF.");
         return;
       }
-      const newId =
-        routes.length > 0 ? Math.max(...routes.map((r) => r.id)) + 1 : 1;
+      const newId = getNextNumericId(routes);
       setRoutes([
         ...routes,
         { id: newId, ...newRoute, price: Number(newRoute.price), currency: "RWF" },
@@ -607,8 +743,7 @@ function AdminDashboard() {
 
   const addUser = () => {
     if (newUser.name && newUser.email) {
-      const newId =
-        users.length > 0 ? Math.max(...users.map((u) => u.id), 0) + 1 : 1;
+      const newId = getNextNumericId(users);
       setUsers([
         ...users,
         { id: newId, bookings: 0, status: "Active", ...newUser },
@@ -645,12 +780,19 @@ function AdminDashboard() {
   const deleteRoute = (id) => setRoutes(routes.filter((r) => r.id !== id));
   const deleteBooking = (id) =>
     setBookings(bookings.filter((b) => b.id !== id));
-  const deleteUser = (id) => {
-    setUsers(users.filter((u) => u.id !== id));
-    const registeredUsers = readStoredArray("users").filter(
-      (user) => user.id !== id,
-    );
-    saveRegisteredUsers(registeredUsers);
+  const deleteUser = async (id) => {
+    const user = users.find((item) => item.id === id);
+    if (user?.accountType === "registered") {
+      try {
+        await apiRequest(`/admin/users/${encodeURIComponent(id)}`, {
+          method: "DELETE",
+        });
+      } catch (error) {
+        addNotification(error.message);
+        return;
+      }
+    }
+    setUsers((currentUsers) => currentUsers.filter((item) => item.id !== id));
   };
   const deletePayment = (id) =>
     setPayments(payments.filter((p) => p.id !== id));

@@ -17,11 +17,7 @@ import {
 import { useBooking } from "../../context/BookingContext";
 import { useNavigate } from "react-router-dom";
 import { useLanguage } from "../../context/LanguageContext";
-import {
-  addSystemNotification,
-  readStoredArray,
-  writeStoredArray,
-} from "../../utils/storage";
+import { apiRequest } from "../../utils/api";
 
 function Checkout() {
   const { booking, setPassengerInfo, resetBooking } = useBooking();
@@ -55,11 +51,7 @@ function Checkout() {
     altPhone: booking.passengerInfo?.altPhone || "",
   });
 
-  const recordBooking = (transactionRef, amount, status, paymentState) => {
-    const storedUser = JSON.parse(localStorage.getItem("currentUser") || "null");
-    const registeredUser = readStoredArray("users").find(
-      (user) => user.email?.toLowerCase() === formData.email.trim().toLowerCase(),
-    );
+  const recordBooking = async (transactionRef, amount, status, paymentState) => {
     const bookingId = `BK${Date.now()}`;
     const dateTime = [booking.travelDate, booking.departTime || booking.travelTime]
       .filter(Boolean)
@@ -69,7 +61,6 @@ function Checkout() {
       passenger: formData.fullname.trim(),
       email: formData.email.trim().toLowerCase(),
       phone: formData.phone.trim(),
-      userId: registeredUser?.id || storedUser?.id || null,
       routeId: `${booking.from} - ${booking.to}`,
       from: booking.from,
       to: booking.to,
@@ -85,12 +76,7 @@ function Checkout() {
       paymentId: transactionRef,
       createdAt: new Date().toISOString(),
     };
-    const bookings = readStoredArray("bookings");
-    bookings.unshift(bookingRecord);
-    writeStoredArray("bookings", bookings);
-
-    const payments = readStoredArray("payments");
-    payments.unshift({
+    const paymentRecord = {
       id: transactionRef,
       bookingId,
       amount,
@@ -100,11 +86,10 @@ function Checkout() {
       passenger: bookingRecord.passenger,
       email: bookingRecord.email,
       currency: "RWF",
-    });
-    writeStoredArray("payments", payments);
-
-    const savedBuses = readStoredArray("buses");
+    };
+    const savedBuses = JSON.parse(localStorage.getItem("buses") || "[]");
     const selectedBus = booking.busDetails;
+    let busRecord;
     if (selectedBus?.name) {
       const currentBus = savedBuses.find(
         (bus) =>
@@ -112,7 +97,8 @@ function Checkout() {
           (selectedBus.plate && bus.plate === selectedBus.plate),
       );
       if (currentBus) {
-        Object.assign(currentBus, {
+        busRecord = {
+          ...currentBus,
           name: selectedBus.name,
           plate: selectedBus.plate || currentBus.plate || "",
           capacity: selectedBus.passengers || currentBus.capacity || "",
@@ -120,12 +106,12 @@ function Checkout() {
           company: selectedBus.company || currentBus.company || "",
           catalogId: selectedBus.id,
           status: currentBus.status || "Active",
-        });
+        };
       } else {
         const numericIds = savedBuses
           .map((bus) => Number(bus.id))
           .filter(Number.isFinite);
-        savedBuses.push({
+        busRecord = {
           id: Math.max(1000, ...numericIds) + 1,
           catalogId: selectedBus.id,
           name: selectedBus.name,
@@ -134,13 +120,13 @@ function Checkout() {
           type: selectedBus.type || "",
           company: selectedBus.company || "",
           status: "Active",
-        });
+        };
       }
-      writeStoredArray("buses", savedBuses);
     }
 
+    const savedRoutes = JSON.parse(localStorage.getItem("routes") || "[]");
+    let routeRecord;
     if (booking.from && booking.to) {
-      const savedRoutes = readStoredArray("routes");
       const existingRoute = savedRoutes.find(
         (route) =>
           route.from?.toLowerCase() === booking.from.toLowerCase() &&
@@ -148,18 +134,19 @@ function Checkout() {
           (route.busId === booking.busId || !route.busId),
       );
       if (existingRoute) {
-        Object.assign(existingRoute, {
+        routeRecord = {
+          ...existingRoute,
           busId: booking.busId,
           busName: booking.busName || existingRoute.busName || "",
           company: booking.busDetails?.company || existingRoute.company || "",
           price: amount / Math.max(booking.selectedSeats.length, 1),
           currency: "RWF",
-        });
+        };
       } else {
         const numericIds = savedRoutes
           .map((route) => Number(route.id))
           .filter(Number.isFinite);
-        savedRoutes.push({
+        routeRecord = {
           id: Math.max(0, ...numericIds) + 1,
           from: booking.from,
           to: booking.to,
@@ -170,15 +157,19 @@ function Checkout() {
           company: booking.busDetails?.company || "",
           price: amount / Math.max(booking.selectedSeats.length, 1),
           currency: "RWF",
-        });
+        };
       }
-      writeStoredArray("routes", savedRoutes);
     }
 
-    addSystemNotification(
-      `${bookingRecord.passenger} booked ${bookingRecord.busName} (${bookingRecord.routeId}), seat(s) ${bookingRecord.seats.join(", ")}. Total: RWF ${Number(amount).toLocaleString()}.`,
-      "booking",
-    );
+    await apiRequest("/bookings", {
+      method: "POST",
+      body: {
+        booking: bookingRecord,
+        payment: paymentRecord,
+        bus: busRecord,
+        route: routeRecord,
+      },
+    });
   };
 
   const handleChange = (e) => {
@@ -255,12 +246,19 @@ function Checkout() {
     const transactionRef = "TXN" + Math.floor(Math.random() * 1000000000);
 
     // Simulate payment processing
-    setTimeout(() => {
+    setTimeout(async () => {
+      try {
+        await recordBooking(transactionRef, totalAmount, "Confirmed", "Completed");
+      } catch (requestError) {
+        setProcessing(false);
+        setPaymentStatus("error");
+        alert(`Booking could not be saved: ${requestError.message}`);
+        return;
+      }
       setProcessing(false);
       setPaymentComplete(true);
       setTransactionId(transactionRef);
       setPaymentStatus("success");
-      recordBooking(transactionRef, totalAmount, "Confirmed", "Completed");
 
       // Send SMS confirmation
       const smsMessage = `✅ BUS BOOKING CONFIRMED!\n\nReference: ${transactionRef}\nRoute: ${booking.from} → ${booking.to}\nSeats: ${booking.selectedSeats.join(", ")}\n      Amount: RWF ${Number(totalAmount).toLocaleString()}\nPayment: Mobile Money\n\nThank you for choosing us!`;
@@ -339,12 +337,19 @@ Bus Booking Team
       booking.selectedSeats.length * (booking.busPrice || 750);
     const transactionRef = "TXN" + Math.floor(Math.random() * 1000000000);
 
-    setTimeout(() => {
+    setTimeout(async () => {
+      try {
+        await recordBooking(transactionRef, totalAmount, "Confirmed", "Completed");
+      } catch (requestError) {
+        setProcessing(false);
+        setPaymentStatus("error");
+        alert(`Booking could not be saved: ${requestError.message}`);
+        return;
+      }
       setProcessing(false);
       setPaymentComplete(true);
       setTransactionId(transactionRef);
       setPaymentStatus("success");
-      recordBooking(transactionRef, totalAmount, "Confirmed", "Completed");
 
       // Send SMS
       sendSMS(
@@ -381,12 +386,19 @@ Bus Booking Team
       booking.selectedSeats.length * (booking.busPrice || 750);
     const transactionRef = "TXN" + Math.floor(Math.random() * 1000000000);
 
-    setTimeout(() => {
+    setTimeout(async () => {
+      try {
+        await recordBooking(transactionRef, totalAmount, "Pending", "Pending");
+      } catch (requestError) {
+        setProcessing(false);
+        setPaymentStatus("error");
+        alert(`Booking could not be saved: ${requestError.message}`);
+        return;
+      }
       setProcessing(false);
       setPaymentComplete(true);
       setTransactionId(transactionRef);
       setPaymentStatus("success");
-      recordBooking(transactionRef, totalAmount, "Pending", "Pending");
 
       sendEmail(
         formData.email,
@@ -410,11 +422,18 @@ Bus Booking Team
       booking.selectedSeats.length * (booking.busPrice || 750);
     const transactionRef = "TXN" + Math.floor(Math.random() * 1000000000);
 
-    setTimeout(() => {
+    setTimeout(async () => {
+      try {
+        await recordBooking(transactionRef, totalAmount, "Pending", "Pending");
+      } catch (requestError) {
+        setProcessing(false);
+        setPaymentStatus("error");
+        alert(`Booking could not be saved: ${requestError.message}`);
+        return;
+      }
       setProcessing(false);
       setPaymentComplete(true);
       setTransactionId(transactionRef);
-      recordBooking(transactionRef, totalAmount, "Pending", "Pending");
 
       sendSMS(
         formData.phone,

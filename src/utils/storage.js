@@ -28,23 +28,3 @@ export function addSystemNotification(message, type = "system") {
   writeStoredArray("notifications", [notification, ...notifications]);
   return notification;
 }
-
-export function saveRegisteredUsers(users) {
-  const registeredIds = new Set(users.map((user) => user.id));
-  const systemUsersById = new Map(
-    readStoredArray("systemUsers")
-      .filter((user) => !registeredIds.has(user.id))
-      .map((user) => [user.id, user]),
-  );
-  users.forEach(({ password, ...user }) => {
-    systemUsersById.set(user.id, user);
-  });
-
-  localStorage.setItem("users", JSON.stringify(users));
-  localStorage.setItem("systemUsers", JSON.stringify([...systemUsersById.values()]));
-  window.dispatchEvent(
-    new CustomEvent("app-storage-change", {
-      detail: { key: "users" },
-    }),
-  );
-}

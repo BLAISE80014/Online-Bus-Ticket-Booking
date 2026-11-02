@@ -34,11 +34,51 @@ OR
 npm i
 ```
 
-Start the server
+## MongoDB backend setup
 
-``` bash
-npm run dev
-```
+When the API connects, it creates these collections in the
+`online-ticket-booking` database if they do not already exist:
+
+- `users` — passenger and admin accounts; passwords are stored as hashes.
+- `buses`, `routes`, `bookings`, and `payments`.
+- `notifications`, `loginHistory`, `staff`, and `systemUsers`.
+- `companySettings`, `paymentSettings`, `notificationSettings`, and
+  `systemPreferences`.
+
+The API also creates the email and record-ID indexes it needs. In MongoDB
+Compass, connect with the same MongoDB URI, refresh the database list, and
+expand `online-ticket-booking` to see the collections. The collections may be
+empty until the system receives data.
+
+1. Copy `server/.env.example` to `server/.env`.
+2. Set `MONGODB_URI` to your MongoDB connection string and keep
+   `MONGODB_DATABASE=online-ticket-booking`.
+3. Set a long, unique `JWT_SECRET`, plus a strong `ADMIN_EMAIL` and
+   `ADMIN_PASSWORD`. The first API start creates that admin account.
+4. In one terminal, start the API:
+
+   ```bash
+   npm run server
+   ```
+
+5. In another terminal, start the website:
+
+   ```bash
+   npm run dev
+   ```
+
+The API is available at `http://localhost:5000`; its health check is
+`http://localhost:5000/api/health`. Optionally copy `.env.example` to `.env` to
+change `VITE_API_URL`. Never commit either `.env` file. For deployment, use
+HTTPS and set `CLIENT_ORIGIN` to the deployed website's origin.
+
+Existing browser-stored buses, routes, bookings, payments, notifications, and
+settings are copied to MongoDB the first time an admin opens the dashboard with
+an empty database. Existing browser-only passenger accounts must register again
+because their passwords were stored locally and are not migrated.
+
+The current checkout payment screens are demonstrations; connecting MongoDB
+does not process real card or mobile-money payments.
 
 If you want to see live project on your mobile or other local machine with same wifi connection.
 
@@ -130,7 +170,3 @@ For support, email gtech.official08@gmail.com or DM us on Instagram.
 ## Appendix
 
 Don't Forgot to Subscribe, Like, Comment, & Share.
-
-
-
-
